@@ -14,9 +14,11 @@ use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\SystemConfigController;
 use App\Http\Controllers\BookingPaymentController;
+use App\Http\Controllers\BookingLiveLocationController;
 use App\Http\Controllers\AffiliateSettlementController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Broadcasting\BroadcastController;
 
 
 // Register and login routes for Users without authentication middleware
@@ -74,6 +76,7 @@ Route::post('driver/reset-password-with-code', [DriverController::class, 'resetP
 Route::middleware(['auth:sanctum', 'abilities:driver'])->get('driver/me', [DriverController::class, 'me']);
 Route::middleware(['auth:sanctum', 'abilities:driver'])->get('driver/bookings', [DriverController::class, 'myBookings']);
 Route::middleware(['auth:sanctum', 'abilities:driver'])->post('driver/bookings/{id}/status', [DriverController::class, 'updateBookingStatus']);
+Route::middleware(['auth:sanctum', 'abilities:driver'])->post('driver/bookings/{id}/location', [BookingLiveLocationController::class, 'updateFromDriver']);
 Route::middleware(['auth:sanctum', 'abilities:driver'])->post('driver/logout', [DriverController::class, 'logout']);
 Route::middleware(['auth:sanctum', 'abilities:driver'])->post('driver/update-password', [DriverController::class, 'updatePassword']);
 
@@ -108,6 +111,7 @@ Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('bookings
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('bookings/recent-activity', [BookingController::class, 'recentActivity']);
 Route::middleware(['auth:sanctum', 'abilities:customer'])->get('customer/bookings', [BookingController::class, 'customerBookings']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('bookings/{id}', [BookingController::class, 'show']);
+Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('bookings/{id}/live-location', [BookingLiveLocationController::class, 'showForAdmin']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('bookings/update/{id}', [BookingController::class, 'update']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('bookings/{id}/assign-driver', [BookingController::class, 'assignDriver']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('bookings/{id}/assign-affiliate', [BookingController::class, 'assignAffiliate']);
@@ -126,6 +130,9 @@ Route::post('payments/webhook/stripe', [BookingPaymentController::class, 'webhoo
 Route::middleware(['auth:sanctum'])->get('bookings/{id}/payment', [BookingPaymentController::class, 'show']);
 Route::post('bookings/{id}/payment/authorize', [BookingPaymentController::class, 'authorizePayment']);
 Route::middleware(['auth:sanctum'])->post('bookings/{id}/payment/capture', [BookingPaymentController::class, 'capturePayment']);
+
+// Broadcast auth for Sanctum tokens (private channels from SPA/dashboard)
+Route::middleware(['auth:sanctum'])->post('broadcasting/auth', [BroadcastController::class, 'authenticate']);
 
 // Route::apiResource('formtemplates', FormtemplateController::class);
 
