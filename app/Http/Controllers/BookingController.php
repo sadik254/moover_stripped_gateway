@@ -487,6 +487,45 @@ class BookingController extends Controller
         ]);
     }
 
+    public function onRouteBookings(Request $request)
+    {
+        $user = $request->user();
+        if (! $user instanceof User) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $company = $this->getCompany();
+        if (! $company) {
+            return response()->json(['message' => 'Company not found'], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'per_page' => 'sometimes|integer|min:1|max:100',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $perPage = (int) $request->input('per_page', 30);
+
+        $bookings = Booking::with([
+                'customer:id,name,email,phone',
+                'driver:id,name,phone',
+                'vehicle:id,name,image',
+            ])
+            ->where('company_id', $company->id)
+            ->where('status', 'on_route')
+            ->orderByDesc('pickup_time')
+            ->paginate($perPage)
+            ->withQueryString();
+
+        return response()->json(['data' => $bookings]);
+    }
+
     public function recentActivity(Request $request)
     {
         $user = $request->user();

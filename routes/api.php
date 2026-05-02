@@ -106,6 +106,7 @@ Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('bookings
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('bookings/dashboard-summary', [BookingController::class, 'dashboardSummary']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('bookings/report', [BookingController::class, 'reportSummary']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('bookings/pending-collections-report', [BookingController::class, 'pendingCollectionsReport']);
+Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('bookings/on-route', [BookingController::class, 'onRouteBookings']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('bookings/live-operations-feed', [BookingController::class, 'liveOperationsFeed']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('bookings/vehicle-availability', [BookingController::class, 'vehicleAvailability']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('bookings/recent-activity', [BookingController::class, 'recentActivity']);
