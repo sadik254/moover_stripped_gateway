@@ -31,13 +31,17 @@ Route::get('/maintenance/clear', function (Request $request) {
 // Local-only page to confirm Reverb events are received in the browser.
 Route::get('/debug/reverb', function () {
     $reverbKey = (string) config('broadcasting.connections.reverb.key', env('REVERB_APP_KEY', 'local'));
-    $wsHost = (string) (env('REVERB_HOST', '127.0.0.1') ?: '127.0.0.1');
-    $wsPort = (int) env('REVERB_PORT', 8090);
-    $wsScheme = (string) env('REVERB_SCHEME', 'http');
+    // For browser clients, never point at 127.0.0.1 on a remote server.
+    // Default to the current host and the Nginx WS proxy path (/ws).
+    $wsHost = request()->getHost();
+    $wsPort = (int) request()->getPort();
+    $wsScheme = request()->isSecure() ? 'https' : 'http';
+    $wsPath = '/ws';
 
     $reverbKeyJson = json_encode($reverbKey, JSON_UNESCAPED_SLASHES);
     $wsHostJson = json_encode($wsHost, JSON_UNESCAPED_SLASHES);
     $wsSchemeJson = json_encode($wsScheme, JSON_UNESCAPED_SLASHES);
+    $wsPathJson = json_encode($wsPath, JSON_UNESCAPED_SLASHES);
 
     $html = <<<HTML
 <!doctype html>
@@ -90,6 +94,7 @@ Route::get('/debug/reverb', function () {
     const WS_HOST = {$wsHostJson};
     const WS_PORT = {$wsPort};
     const WS_SCHEME = {$wsSchemeJson};
+    const WS_PATH = {$wsPathJson};
     const AUTH_ENDPOINT = '/api/broadcasting/auth';
 
     const logEl = document.getElementById('log');
@@ -148,6 +153,7 @@ Route::get('/debug/reverb', function () {
           wsHost: WS_HOST,
           wsPort: WS_PORT,
           wssPort: WS_PORT,
+          wsPath: WS_PATH,
           forceTLS: WS_SCHEME === 'https',
           enabledTransports: ['ws', 'wss'],
           disableStats: true,
