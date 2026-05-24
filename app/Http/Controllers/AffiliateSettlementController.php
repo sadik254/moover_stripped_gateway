@@ -182,6 +182,16 @@ class AffiliateSettlementController extends Controller
             $settlement->status_reason = 'missing_stripe_account';
             $settlement->save();
 
+            Log::warning('Affiliate disbursement blocked: missing Stripe Connect account', [
+                'settlement_id' => $settlement->id,
+                'affiliate_id' => $settlement->affiliate_id,
+                'booking_id' => $settlement->booking_id,
+                'amount' => $settlement->affiliate_amount,
+                'currency' => $settlement->currency,
+                'processed_by_user_id' => $user->id,
+                'reason' => 'missing_stripe_account',
+            ]);
+
             return response()->json([
                 'message' => 'Settlement is on hold due to missing stripe account',
                 'data' => $settlement,
@@ -251,6 +261,19 @@ class AffiliateSettlementController extends Controller
                 ],
             ]);
         } catch (ApiErrorException $e) {
+            Log::error('Affiliate disbursement failed', [
+                'settlement_id' => $settlement->id,
+                'affiliate_id' => $settlement->affiliate_id,
+                'booking_id' => $settlement->booking_id,
+                'amount' => $amount,
+                'currency' => strtolower((string) $settlement->currency),
+                'processed_by_user_id' => $user->id,
+                'stripe_connect_account_id' => $affiliate->stripe_connect_account_id,
+                'stripe_error' => $e->getMessage(),
+                'stripe_error_code' => $e->getStripeCode(),
+                'stripe_http_status' => $e->getHttpStatus(),
+            ]);
+
             $settlement->status = 'failed';
             $settlement->status_reason = $e->getMessage();
             $settlement->save();
