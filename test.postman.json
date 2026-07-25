@@ -1,268 +1,159 @@
 {
-    "info": {
-        "name": "Smart API \u2013 Postman Collection",
-        "schema": "https:\/\/schema.getpostman.com\/json\/collection\/v2.1.0\/collection.json"
+  "info": {
+    "name": "Moover Stripped Gateway API",
+    "description": "Current API routes. Set {{token}} to a token for the role required by each request. The login requests automatically update it when successful.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://127.0.0.1:8000/api", "type": "string" },
+    { "key": "token", "value": "", "type": "string" },
+    { "key": "booking_id", "value": "1", "type": "string" },
+    { "key": "vehicle_class_id", "value": "1", "type": "string" },
+    { "key": "vehicle_id", "value": "1", "type": "string" },
+    { "key": "driver_id", "value": "1", "type": "string" },
+    { "key": "customer_id", "value": "1", "type": "string" },
+    { "key": "affiliate_id", "value": "1", "type": "string" },
+    { "key": "affiliate_driver_id", "value": "1", "type": "string" }
+  ],
+  "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+  "item": [
+    {
+      "name": "User Authentication",
+      "item": [
+        { "name": "Login User", "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"password123\"\n}" }, "url": "{{base_url}}/user/login" }, "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code < 400 && pm.response.json().token) { pm.collectionVariables.set('token', pm.response.json().token); }"] } }] },
+        { "name": "Current User", "request": { "method": "GET", "url": "{{base_url}}/user" } },
+        { "name": "Update User", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Admin\"\n}" }, "url": "{{base_url}}/user/update" } },
+        { "name": "Create Dispatcher", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Test Dispatcher\",\n  \"email\": \"dispatcher@example.com\"\n}" }, "url": "{{base_url}}/user/create-dispatcher" } },
+        { "name": "Update User Password", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"current_password\": \"password123\",\n  \"new_password\": \"newpassword123\",\n  \"new_password_confirmation\": \"newpassword123\"\n}" }, "url": "{{base_url}}/user/update-password" } },
+        { "name": "Logout User", "request": { "method": "POST", "url": "{{base_url}}/user/logout" } }
+      ]
     },
-    "item": [
-        {
-            "name": "Create Affiliate",
-            "request": {
-                "method": "POST",
-                "header": [
-                    {
-                        "key": "Content-Type",
-                        "value": "application\/json"
-                    }
-                ],
-                "url": {
-                    "raw": "{{base_url}}\/api\/affiliates",
-                    "host": [
-                        "{{base_url}}"
-                    ],
-                    "path": [
-                        "api",
-                        "affiliates"
-                    ]
-                },
-                "body": {
-                    "mode": "raw",
-                    "raw": "{\n    \"example_field\": \"\"\n}"
-                }
-            }
-        },
-        {
-            "name": "Create Affiliateclick",
-            "request": {
-                "method": "POST",
-                "header": [
-                    {
-                        "key": "Content-Type",
-                        "value": "application\/json"
-                    }
-                ],
-                "url": {
-                    "raw": "{{base_url}}\/api\/affiliateclicks",
-                    "host": [
-                        "{{base_url}}"
-                    ],
-                    "path": [
-                        "api",
-                        "affiliateclicks"
-                    ]
-                },
-                "body": {
-                    "mode": "raw",
-                    "raw": "{\n    \"example_field\": \"\"\n}"
-                }
-            }
-        },
-        {
-            "name": "Create Booking",
-            "request": {
-                "method": "POST",
-                "header": [
-                    {
-                        "key": "Content-Type",
-                        "value": "application\/json"
-                    }
-                ],
-                "url": {
-                    "raw": "{{base_url}}\/api\/bookings",
-                    "host": [
-                        "{{base_url}}"
-                    ],
-                    "path": [
-                        "api",
-                        "bookings"
-                    ]
-                },
-                "body": {
-                    "mode": "raw",
-                    "raw": "{\n    \"example_field\": \"\"\n}"
-                }
-            }
-        },
-        {
-            "name": "Create Company",
-            "request": {
-                "method": "POST",
-                "header": [
-                    {
-                        "key": "Content-Type",
-                        "value": "application\/json"
-                    }
-                ],
-                "url": {
-                    "raw": "{{base_url}}\/api\/companies",
-                    "host": [
-                        "{{base_url}}"
-                    ],
-                    "path": [
-                        "api",
-                        "companies"
-                    ]
-                },
-                "body": {
-                    "mode": "raw",
-                    "raw": "{\n    \"example_field\": \"\"\n}"
-                }
-            }
-        },
-        {
-            "name": "Create Customer",
-            "request": {
-                "method": "POST",
-                "header": [
-                    {
-                        "key": "Content-Type",
-                        "value": "application\/json"
-                    }
-                ],
-                "url": {
-                    "raw": "{{base_url}}\/api\/customers",
-                    "host": [
-                        "{{base_url}}"
-                    ],
-                    "path": [
-                        "api",
-                        "customers"
-                    ]
-                },
-                "body": {
-                    "mode": "raw",
-                    "raw": "{\n    \"example_field\": \"\"\n}"
-                }
-            }
-        },
-        {
-            "name": "Create Driver",
-            "request": {
-                "method": "POST",
-                "header": [
-                    {
-                        "key": "Content-Type",
-                        "value": "application\/json"
-                    }
-                ],
-                "url": {
-                    "raw": "{{base_url}}\/api\/drivers",
-                    "host": [
-                        "{{base_url}}"
-                    ],
-                    "path": [
-                        "api",
-                        "drivers"
-                    ]
-                },
-                "body": {
-                    "mode": "raw",
-                    "raw": "{\n    \"example_field\": \"\"\n}"
-                }
-            }
-        },
-        {
-            "name": "Create Formsubmission",
-            "request": {
-                "method": "POST",
-                "header": [
-                    {
-                        "key": "Content-Type",
-                        "value": "application\/json"
-                    }
-                ],
-                "url": {
-                    "raw": "{{base_url}}\/api\/formsubmissions",
-                    "host": [
-                        "{{base_url}}"
-                    ],
-                    "path": [
-                        "api",
-                        "formsubmissions"
-                    ]
-                },
-                "body": {
-                    "mode": "raw",
-                    "raw": "{\n    \"example_field\": \"\"\n}"
-                }
-            }
-        },
-        {
-            "name": "Create Formtemplate",
-            "request": {
-                "method": "POST",
-                "header": [
-                    {
-                        "key": "Content-Type",
-                        "value": "application\/json"
-                    }
-                ],
-                "url": {
-                    "raw": "{{base_url}}\/api\/formtemplates",
-                    "host": [
-                        "{{base_url}}"
-                    ],
-                    "path": [
-                        "api",
-                        "formtemplates"
-                    ]
-                },
-                "body": {
-                    "mode": "raw",
-                    "raw": "{\n    \"example_field\": \"\"\n}"
-                }
-            }
-        },
-        {
-            "name": "Create User",
-            "request": {
-                "method": "POST",
-                "header": [
-                    {
-                        "key": "Content-Type",
-                        "value": "application\/json"
-                    }
-                ],
-                "url": {
-                    "raw": "{{base_url}}\/api\/users",
-                    "host": [
-                        "{{base_url}}"
-                    ],
-                    "path": [
-                        "api",
-                        "users"
-                    ]
-                },
-                "body": {
-                    "mode": "raw",
-                    "raw": "{\n    \"example_field\": \"\"\n}"
-                }
-            }
-        },
-        {
-            "name": "Create Vehicle",
-            "request": {
-                "method": "POST",
-                "header": [
-                    {
-                        "key": "Content-Type",
-                        "value": "application\/json"
-                    }
-                ],
-                "url": {
-                    "raw": "{{base_url}}\/api\/vehicles",
-                    "host": [
-                        "{{base_url}}"
-                    ],
-                    "path": [
-                        "api",
-                        "vehicles"
-                    ]
-                },
-                "body": {
-                    "mode": "raw",
-                    "raw": "{\n    \"example_field\": \"\"\n}"
-                }
-            }
-        }
-    ]
+    {
+      "name": "Company And Configuration",
+      "item": [
+        { "name": "Create Company", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Moover Test Transport\",\n  \"email\": \"hello@moover.test\",\n  \"phone\": \"+8801700000000\",\n  \"address\": \"Dhaka, Bangladesh\",\n  \"timezone\": \"Asia/Dhaka\",\n  \"url\": \"https://example.com\"\n}" }, "url": "{{base_url}}/company" } },
+        { "name": "Get Company", "request": { "method": "GET", "url": "{{base_url}}/company" } },
+        { "name": "Update Company", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+8801711111111\",\n  \"address\": \"Gulshan, Dhaka\"\n}" }, "url": "{{base_url}}/company/update" } },
+        { "name": "Delete Company", "disabled": true, "request": { "method": "DELETE", "url": "{{base_url}}/company" } },
+        { "name": "Get System Config", "request": { "auth": { "type": "noauth" }, "method": "GET", "url": "{{base_url}}/system-config" } },
+        { "name": "Create System Config", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"platform_name\": \"Moover Test\",\n  \"service_zones\": [\"Dhaka\", \"Chattogram\"],\n  \"primary_brand_color\": \"#0F766E\",\n  \"secondary_brand_color\": \"#F59E0B\"\n}" }, "url": "{{base_url}}/system-config" } },
+        { "name": "Update System Config", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"platform_name\": \"Moover Operations\",\n  \"service_zones\": [\"Dhaka\"]\n}" }, "url": "{{base_url}}/system-config/update" } }
+      ]
+    },
+    {
+      "name": "Vehicle Classes And Vehicles",
+      "item": [
+        { "name": "List Vehicle Classes", "request": { "method": "GET", "url": "{{base_url}}/vehicle-classes" } },
+        { "name": "Create Vehicle Class", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Executive Sedan\",\n  \"description\": \"Comfortable city transport\"\n}" }, "url": "{{base_url}}/vehicle-classes" }, "event": [{ "listen": "test", "script": { "exec": ["const data = pm.response.json().data; if (pm.response.code < 400 && data?.id) pm.collectionVariables.set('vehicle_class_id', data.id);"] } }] },
+        { "name": "Get Vehicle Class", "request": { "method": "GET", "url": "{{base_url}}/vehicle-classes/{{vehicle_class_id}}" } },
+        { "name": "Update Vehicle Class", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"description\": \"Updated city transport class\"\n}" }, "url": "{{base_url}}/vehicle-classes/update/{{vehicle_class_id}}" } },
+        { "name": "Delete Vehicle Class", "disabled": true, "request": { "method": "DELETE", "url": "{{base_url}}/vehicle-classes/{{vehicle_class_id}}" } },
+        { "name": "List Vehicles", "request": { "method": "GET", "url": "{{base_url}}/vehicles" } },
+        { "name": "Create Vehicle", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"vehicle_class_id\": {{vehicle_class_id}},\n  \"name\": \"Toyota Premio\",\n  \"category\": \"Sedan\",\n  \"capacity\": 4,\n  \"luggage\": 3,\n  \"status\": \"active\",\n  \"plate_number\": \"DHAKA-TEST-001\",\n  \"color\": \"Black\",\n  \"model\": \"2024\"\n}" }, "url": "{{base_url}}/vehicles" }, "event": [{ "listen": "test", "script": { "exec": ["const data = pm.response.json().data; if (pm.response.code < 400 && data?.id) pm.collectionVariables.set('vehicle_id', data.id);"] } }] },
+        { "name": "Get Vehicle", "request": { "method": "GET", "url": "{{base_url}}/vehicles/{{vehicle_id}}" } },
+        { "name": "Update Vehicle", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"status\": \"active\",\n  \"color\": \"Silver\"\n}" }, "url": "{{base_url}}/vehicles/update/{{vehicle_id}}" } },
+        { "name": "Delete Vehicle", "disabled": true, "request": { "method": "DELETE", "url": "{{base_url}}/vehicles/{{vehicle_id}}" } }
+      ]
+    },
+    {
+      "name": "Drivers",
+      "item": [
+        { "name": "List Drivers", "request": { "method": "GET", "url": "{{base_url}}/drivers?per_page=15" } },
+        { "name": "Driver Dashboard Summary", "request": { "method": "GET", "url": "{{base_url}}/drivers/dashboard-summary" } },
+        { "name": "Export Drivers CSV", "request": { "method": "GET", "url": "{{base_url}}/drivers/export/csv" } },
+        { "name": "Create Driver", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"vehicle_id\": {{vehicle_id}},\n  \"name\": \"Test Driver\",\n  \"email\": \"driver@example.com\",\n  \"phone\": \"+8801800000000\",\n  \"license_number\": \"DL-TEST-001\",\n  \"license_expiry\": \"2028-12-31\",\n  \"status\": \"active\",\n  \"available\": true\n}" }, "url": "{{base_url}}/drivers" }, "event": [{ "listen": "test", "script": { "exec": ["const data = pm.response.json().data; if (pm.response.code < 400 && data?.id) pm.collectionVariables.set('driver_id', data.id);"] } }] },
+        { "name": "Get Driver", "request": { "method": "GET", "url": "{{base_url}}/drivers/{{driver_id}}" } },
+        { "name": "Update Driver", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"status\": \"active\",\n  \"available\": true\n}" }, "url": "{{base_url}}/drivers/update/{{driver_id}}" } },
+        { "name": "Delete Driver", "disabled": true, "request": { "method": "DELETE", "url": "{{base_url}}/drivers/{{driver_id}}" } },
+        { "name": "Login Driver", "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"driver@example.com\",\n  \"password\": \"DRIVER_PASSWORD_FROM_CREATE_RESPONSE\"\n}" }, "url": "{{base_url}}/driver/login" }, "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code < 400 && pm.response.json().token) { pm.collectionVariables.set('token', pm.response.json().token); }"] } }] },
+        { "name": "Driver Password Reset Code", "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"driver@example.com\"\n}" }, "url": "{{base_url}}/driver/request-password-reset-code" } },
+        { "name": "Reset Driver Password", "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"driver@example.com\",\n  \"reset_code\": \"123456\",\n  \"new_password\": \"password123\",\n  \"new_password_confirmation\": \"password123\"\n}" }, "url": "{{base_url}}/driver/reset-password-with-code" } },
+        { "name": "Driver Profile", "request": { "method": "GET", "url": "{{base_url}}/driver/me" } },
+        { "name": "Driver Bookings", "request": { "method": "GET", "url": "{{base_url}}/driver/bookings?status=assigned&per_page=15" } },
+        { "name": "Driver Update Booking Status", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"status\": \"on_route\"\n}" }, "url": "{{base_url}}/driver/bookings/{{booking_id}}/status" } },
+        { "name": "Driver Update Booking Location", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"latitude\": 23.8103,\n  \"longitude\": 90.4125,\n  \"heading\": 90,\n  \"speed\": 30,\n  \"accuracy\": 10\n}" }, "url": "{{base_url}}/driver/bookings/{{booking_id}}/location" } },
+        { "name": "Driver Update Password", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"old_password\": \"password123\",\n  \"new_password\": \"newpassword123\",\n  \"new_password_confirmation\": \"newpassword123\"\n}" }, "url": "{{base_url}}/driver/update-password" } },
+        { "name": "Logout Driver", "request": { "method": "POST", "url": "{{base_url}}/driver/logout" } }
+      ]
+    },
+    {
+      "name": "Customers",
+      "item": [
+        { "name": "Register Customer", "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Test Customer\",\n  \"email\": \"customer@example.com\",\n  \"phone\": \"+8801900000000\",\n  \"password\": \"password123\",\n  \"password_confirmation\": \"password123\",\n  \"customer_company\": \"Example Ltd\"\n}" }, "url": "{{base_url}}/customer/register" } },
+        { "name": "Verify Customer Registration", "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"customer@example.com\",\n  \"verification_code\": \"123456\"\n}" }, "url": "{{base_url}}/customer/verify-registration-code" } },
+        { "name": "Resend Customer Verification", "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"customer@example.com\"\n}" }, "url": "{{base_url}}/customer/resend-verification-code" } },
+        { "name": "Customer Password Reset Code", "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"customer@example.com\"\n}" }, "url": "{{base_url}}/customer/request-reset-password-code" } },
+        { "name": "Reset Customer Password", "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"customer@example.com\",\n  \"reset_code\": \"123456\",\n  \"new_password\": \"password123\",\n  \"new_password_confirmation\": \"password123\"\n}" }, "url": "{{base_url}}/customer/reset-password-with-code" } },
+        { "name": "Login Customer", "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"customer@example.com\",\n  \"password\": \"password123\"\n}" }, "url": "{{base_url}}/customer/login" }, "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code < 400 && pm.response.json().token) { pm.collectionVariables.set('token', pm.response.json().token); }"] } }] },
+        { "name": "Customer Self Update", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Customer\",\n  \"phone\": \"+8801911111111\"\n}" }, "url": "{{base_url}}/customer/self-update" } },
+        { "name": "Customer Bookings", "request": { "method": "GET", "url": "{{base_url}}/customer/bookings?per_page=15" } },
+        { "name": "Logout Customer", "request": { "method": "POST", "url": "{{base_url}}/customer/logout" } },
+        { "name": "List Customers", "request": { "method": "GET", "url": "{{base_url}}/customers?per_page=15" } },
+        { "name": "Customer Dashboard Summary", "request": { "method": "GET", "url": "{{base_url}}/customers/dashboard-summary" } },
+        { "name": "Export Customers CSV", "request": { "method": "GET", "url": "{{base_url}}/customers/export/csv?customer_type=corporate" } },
+        { "name": "Create Customer (Admin)", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Managed Customer\",\n  \"email\": \"managed.customer@example.com\",\n  \"phone\": \"+8801922222222\",\n  \"customer_company\": \"Example Ltd\",\n  \"customer_type\": \"corporate\",\n  \"preferred_service_level\": \"executive\",\n  \"dispatch_note\": \"Call before pickup\"\n}" }, "url": "{{base_url}}/customers" }, "event": [{ "listen": "test", "script": { "exec": ["const data = pm.response.json().data; if (pm.response.code < 400 && data?.id) pm.collectionVariables.set('customer_id', data.id);"] } }] },
+        { "name": "Get Customer", "request": { "method": "GET", "url": "{{base_url}}/customers/{{customer_id}}" } },
+        { "name": "Update Customer", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"dispatch_note\": \"Updated dispatch note\",\n  \"preferred_service_level\": \"standard\"\n}" }, "url": "{{base_url}}/customers/update/{{customer_id}}" } },
+        { "name": "Delete Customer", "disabled": true, "request": { "method": "DELETE", "url": "{{base_url}}/customers/{{customer_id}}" } }
+      ]
+    },
+    {
+      "name": "Bookings",
+      "item": [
+        { "name": "Create Booking", "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Walk-in Passenger\",\n  \"email\": \"passenger@example.com\",\n  \"phone\": \"+8801600000000\",\n  \"vehicle_id\": {{vehicle_id}},\n  \"service_type\": \"point_to_point\",\n  \"pickup_address\": \"Hazrat Shahjalal International Airport\",\n  \"dropoff_address\": \"Gulshan 2, Dhaka\",\n  \"pickup_time\": \"2026-08-01 10:00:00\",\n  \"passengers\": 2,\n  \"bags\": 2,\n  \"flight_number\": \"BG-123\",\n  \"notes\": \"Please call on arrival\"\n}" }, "url": "{{base_url}}/bookings" }, "event": [{ "listen": "test", "script": { "exec": ["const data = pm.response.json().data; if (pm.response.code < 400 && data?.id) pm.collectionVariables.set('booking_id', data.id);"] } }] },
+        { "name": "List Bookings", "request": { "method": "GET", "url": "{{base_url}}/bookings?per_page=15" } },
+        { "name": "Export Bookings CSV", "request": { "method": "GET", "url": "{{base_url}}/bookings/export/csv" } },
+        { "name": "Booking Dashboard Summary", "request": { "method": "GET", "url": "{{base_url}}/bookings/dashboard-summary" } },
+        { "name": "Booking Report", "request": { "method": "GET", "url": "{{base_url}}/bookings/report?date_from=2026-08-01&date_to=2026-08-31" } },
+        { "name": "Pending Collections Report", "request": { "method": "GET", "url": "{{base_url}}/bookings/pending-collections-report" } },
+        { "name": "On Route Bookings", "request": { "method": "GET", "url": "{{base_url}}/bookings/on-route" } },
+        { "name": "Live Operations Feed", "request": { "method": "GET", "url": "{{base_url}}/bookings/live-operations-feed" } },
+        { "name": "Vehicle Availability", "request": { "method": "GET", "url": "{{base_url}}/bookings/vehicle-availability?pickup_time=2026-08-01%2010:00:00&dropoff_time=2026-08-01%2012:00:00" } },
+        { "name": "Recent Booking Activity", "request": { "method": "GET", "url": "{{base_url}}/bookings/recent-activity" } },
+        { "name": "Get Booking", "request": { "method": "GET", "url": "{{base_url}}/bookings/{{booking_id}}" } },
+        { "name": "Booking Live Location", "request": { "method": "GET", "url": "{{base_url}}/bookings/{{booking_id}}/live-location" } },
+        { "name": "Update Booking", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"pickup_address\": \"Terminal 3, Dhaka Airport\",\n  \"passengers\": 3,\n  \"notes\": \"Updated booking details\"\n}" }, "url": "{{base_url}}/bookings/update/{{booking_id}}" } },
+        { "name": "Assign Driver", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"driver_id\": {{driver_id}}\n}" }, "url": "{{base_url}}/bookings/{{booking_id}}/assign-driver" } },
+        { "name": "Assign Affiliate", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"affiliate_id\": {{affiliate_id}}\n}" }, "url": "{{base_url}}/bookings/{{booking_id}}/assign-affiliate" } },
+        { "name": "Update Booking Status", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"status\": \"confirmed\"\n}" }, "url": "{{base_url}}/bookings/{{booking_id}}/update-status" } },
+        { "name": "Cancel Booking", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"reason\": \"Customer requested cancellation\"\n}" }, "url": "{{base_url}}/bookings/{{booking_id}}/cancel" } },
+        { "name": "Delete Booking", "disabled": true, "request": { "method": "DELETE", "url": "{{base_url}}/bookings/{{booking_id}}" } }
+      ]
+    },
+    {
+      "name": "Affiliates",
+      "item": [
+        { "name": "List Affiliates", "request": { "method": "GET", "url": "{{base_url}}/affiliates?per_page=15" } },
+        { "name": "Create Affiliate", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Test Affiliate\",\n  \"email\": \"affiliate@example.com\",\n  \"phone\": \"+8801500000000\",\n  \"status\": \"active\",\n  \"address\": \"Dhaka, Bangladesh\"\n}" }, "url": "{{base_url}}/affiliates" }, "event": [{ "listen": "test", "script": { "exec": ["const data = pm.response.json().data; if (pm.response.code < 400 && data?.id) pm.collectionVariables.set('affiliate_id', data.id);"] } }] },
+        { "name": "Get Affiliate", "request": { "method": "GET", "url": "{{base_url}}/affiliates/{{affiliate_id}}" } },
+        { "name": "Login Affiliate", "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"affiliate@example.com\",\n  \"password\": \"AFFILIATE_PASSWORD_FROM_CREATE_RESPONSE\"\n}" }, "url": "{{base_url}}/affiliate/login" }, "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code < 400 && pm.response.json().token) { pm.collectionVariables.set('token', pm.response.json().token); }"] } }] },
+        { "name": "Affiliate Password Reset Code", "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"affiliate@example.com\"\n}" }, "url": "{{base_url}}/affiliate/request-password-reset-code" } },
+        { "name": "Reset Affiliate Password", "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"affiliate@example.com\",\n  \"reset_code\": \"123456\",\n  \"new_password\": \"password123\",\n  \"new_password_confirmation\": \"password123\"\n}" }, "url": "{{base_url}}/affiliate/reset-password-with-code" } },
+        { "name": "Affiliate Profile", "request": { "method": "GET", "url": "{{base_url}}/affiliate/me" } },
+        { "name": "Affiliate Bookings", "request": { "method": "GET", "url": "{{base_url}}/affiliate/bookings?per_page=15" } },
+        { "name": "Get Affiliate Booking", "request": { "method": "GET", "url": "{{base_url}}/affiliate/bookings/{{booking_id}}" } },
+        { "name": "Accept Affiliate Booking", "request": { "method": "POST", "url": "{{base_url}}/affiliate/bookings/{{booking_id}}/accept" } },
+        { "name": "Reject Affiliate Booking", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"affiliate_notes\": \"Unable to cover this route\"\n}" }, "url": "{{base_url}}/affiliate/bookings/{{booking_id}}/reject" } },
+        { "name": "Update Affiliate Booking Status", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"affiliate_status\": \"assigned_driver\",\n  \"assigned_affiliate_driver_id\": {{affiliate_driver_id}},\n  \"affiliate_reference\": \"AFF-TEST-001\",\n  \"affiliate_notes\": \"Driver assigned\"\n}" }, "url": "{{base_url}}/affiliate/bookings/{{booking_id}}/status" } },
+        { "name": "Update Affiliate Password", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"old_password\": \"password123\",\n  \"new_password\": \"newpassword123\",\n  \"new_password_confirmation\": \"newpassword123\"\n}" }, "url": "{{base_url}}/affiliate/update-password" } },
+        { "name": "Logout Affiliate", "request": { "method": "POST", "url": "{{base_url}}/affiliate/logout" } }
+      ]
+    },
+    {
+      "name": "Affiliate Drivers",
+      "item": [
+        { "name": "List Affiliate Drivers", "request": { "method": "GET", "url": "{{base_url}}/affiliate/drivers?per_page=15&status=active" } },
+        { "name": "Create Affiliate Driver", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Affiliate Driver\",\n  \"email\": \"affiliate.driver@example.com\",\n  \"phone\": \"+8801411111111\",\n  \"status\": \"active\",\n  \"license_number\": \"AFF-DL-001\",\n  \"license_expiry\": \"2028-12-31\",\n  \"notes\": \"Available for airport trips\"\n}" }, "url": "{{base_url}}/affiliate/drivers" }, "event": [{ "listen": "test", "script": { "exec": ["const data = pm.response.json().data; if (pm.response.code < 400 && data?.id) pm.collectionVariables.set('affiliate_driver_id', data.id);"] } }] },
+        { "name": "Get Affiliate Driver", "request": { "method": "GET", "url": "{{base_url}}/affiliate/drivers/{{affiliate_driver_id}}" } },
+        { "name": "Update Affiliate Driver", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"status\": \"active\",\n  \"notes\": \"Updated availability note\"\n}" }, "url": "{{base_url}}/affiliate/drivers/{{affiliate_driver_id}}/update" } },
+        { "name": "Delete Affiliate Driver", "disabled": true, "request": { "method": "DELETE", "url": "{{base_url}}/affiliate/drivers/{{affiliate_driver_id}}" } }
+      ]
+    },
+    {
+      "name": "Broadcasting",
+      "item": [
+        { "name": "Authenticate Private Channel", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"socket_id\": \"1234.5678\",\n  \"channel_name\": \"private-booking.{{booking_id}}\"\n}" }, "url": "{{base_url}}/broadcasting/auth" } }
+      ]
+    }
+  ]
 }

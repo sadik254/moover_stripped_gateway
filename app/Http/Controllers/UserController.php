@@ -3,12 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Mail\UserRegisteredMail;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
@@ -41,52 +37,6 @@ class UserController extends Controller
             'user_id' => $user->id,
             'message' => 'Login successful',
             ], 200);
-    }
-
-    public function register(Request $request)
-    {
-        // dd('call register method');
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
-            'password' => 'required|min:6|confirmed',
-        ]);
-        // dd($request->all());
-
-        $data = $request->only(['name', 'email']);
-        $data['password'] = Hash::make($request->password);
-        $data['user_type'] = 'admin';
-        // dd($data);
-
-        // if ($request->hasFile('image')) {
-        //     $image = $request->file('image');
-        //     $path = $image->store('uploads/users', 'public');
-        //     $data['image'] = $path;
-        // }
-
-        $user = User::create($data);
-
-        // $token = $user->createToken('YourAppName')->plainTextToken;
-        $plainTextToken = $user->createToken('UserRegistration', ['user'])->plainTextToken;
-
-        // Extract the token part after the '|'
-        $token = explode('|', $plainTextToken)[1];
-
-        try {
-            Mail::to($user->email)->send(new UserRegisteredMail($user));
-        } catch (\Throwable $e) {
-            Log::warning('User registration mail failed', [
-                'user_id' => $user->id,
-                'email' => $user->email,
-                'error' => $e->getMessage(),
-            ]);
-        }
-
-        return response()->json([
-            'token' => $token, 
-            'user_id' => $user->id,
-            'message' => 'User registered successfully',
-            ], 201);
     }
 
     public function show(Request $request)

@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Mail\AffiliateCreatedPasswordMail;
 use App\Mail\AffiliatePasswordResetCodeMail;
 use App\Models\Affiliate;
-use App\Models\AffiliateBookingSettlement;
 use App\Models\AffiliateDriver;
 use App\Models\Booking;
 use App\Models\Company;
@@ -18,7 +17,6 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
-use Illuminate\Http\Exceptions\HttpResponseException;
 
 class AffiliateController extends Controller
 {
@@ -64,11 +62,6 @@ class AffiliateController extends Controller
             'phone' => 'nullable|string|max:255',
             'status' => 'nullable|string|max:50',
             'address' => 'nullable|string',
-            'payout_mode' => ['sometimes', Rule::in(['percentage'])],
-            'affiliate_payout_percent' => 'sometimes|numeric|min:0|max:100',
-            'platform_commission_percent' => 'sometimes|numeric|min:0|max:100',
-            'stripe_connect_account_id' => 'sometimes|nullable|string|max:255',
-            'payout_currency' => 'sometimes|string|max:10',
         ]);
 
         if ($validator->fails()) {
@@ -87,11 +80,6 @@ class AffiliateController extends Controller
             'user_type' => 'affiliate',
         ]);
 
-        [$affiliatePercent, $platformPercent] = $this->normalizePercentages(
-            $request->input('affiliate_payout_percent'),
-            $request->input('platform_commission_percent')
-        );
-
         $affiliate = Affiliate::create([
             'company_id' => $company->id,
             'user_id' => $user->id,
@@ -100,11 +88,6 @@ class AffiliateController extends Controller
             'phone' => $request->phone,
             'status' => $request->status,
             'address' => $request->address,
-            'payout_mode' => (string) ($request->payout_mode ?? 'percentage'),
-            'affiliate_payout_percent' => $affiliatePercent,
-            'platform_commission_percent' => $platformPercent,
-            'stripe_connect_account_id' => $request->stripe_connect_account_id,
-            'payout_currency' => strtolower((string) ($request->payout_currency ?? 'usd')),
         ]);
 
         $this->sendAffiliateCredentialsEmail($affiliate, $generatedPassword);
@@ -159,11 +142,6 @@ class AffiliateController extends Controller
             'phone' => 'sometimes|nullable|string|max:255',
             'status' => 'sometimes|nullable|string|max:50',
             'address' => 'sometimes|nullable|string',
-            'payout_mode' => ['sometimes', Rule::in(['percentage'])],
-            'affiliate_payout_percent' => 'sometimes|numeric|min:0|max:100',
-            'platform_commission_percent' => 'sometimes|numeric|min:0|max:100',
-            'stripe_connect_account_id' => 'sometimes|nullable|string|max:255',
-            'payout_currency' => 'sometimes|string|max:10',
         ]);
 
         if ($validator->fails()) {
@@ -173,23 +151,13 @@ class AffiliateController extends Controller
             ], 422);
         }
 
-        [$affiliatePercent, $platformPercent] = $this->normalizePercentages(
-            $request->input('affiliate_payout_percent', $affiliate->affiliate_payout_percent),
-            $request->input('platform_commission_percent', $affiliate->platform_commission_percent)
-        );
-
         $affiliate->fill($request->only([
             'name',
             'email',
             'phone',
             'status',
             'address',
-            'payout_mode',
-            'stripe_connect_account_id',
-            'payout_currency',
         ]));
-        $affiliate->affiliate_payout_percent = $affiliatePercent;
-        $affiliate->platform_commission_percent = $platformPercent;
         $affiliate->save();
 
         if ($affiliate->user_id) {
@@ -377,11 +345,6 @@ class AffiliateController extends Controller
                 'phone' => $affiliate->phone,
                 'status' => $affiliate->status,
                 'address' => $affiliate->address,
-                'payout_mode' => $affiliate->payout_mode,
-                'affiliate_payout_percent' => $affiliate->affiliate_payout_percent,
-                'platform_commission_percent' => $affiliate->platform_commission_percent,
-                'stripe_connect_account_id' => $affiliate->stripe_connect_account_id,
-                'payout_currency' => $affiliate->payout_currency,
                 'created_at' => $affiliate->created_at,
                 'updated_at' => $affiliate->updated_at,
             ],
@@ -417,7 +380,6 @@ class AffiliateController extends Controller
                 'customer:id,name,email,phone',
                 'vehicle:id,name,plate_number,color,model,image',
                 'assignedAffiliateDriver:id,name,email,phone,status',
-                'settlement',
             ])
             ->where('affiliate_id', $affiliate->id)
             ->orderByDesc('id');
@@ -428,17 +390,6 @@ class AffiliateController extends Controller
 
         $perPage = (int) $request->input('per_page', 15);
         $bookings = $query->paginate($perPage)->withQueryString();
-        $bookings->getCollection()->transform(function ($booking) use ($affiliate) {
-            $preview = $this->calculateSettlementAmounts(
-                $booking,
-                (float) $affiliate->affiliate_payout_percent,
-                (float) $affiliate->platform_commission_percent,
-                (string) ($affiliate->payout_currency ?: 'usd')
-            );
-
-            $booking->setAttribute('affiliate_payout_preview', $preview);
-            return $booking;
-        });
 
         return response()->json(['data' => $bookings]);
     }
@@ -631,14 +582,6 @@ class AffiliateController extends Controller
 
         $booking->save();
 
-        if ($targetState === 'accepted') {
-            $this->createOrRefreshSettlementForAcceptedBooking($booking, $affiliate);
-        }
-
-        if ($targetState === 'cancelled') {
-            $this->zeroOutSettlementForCancelledBooking($booking, $affiliate);
-        }
-
         return response()->json([
             'message' => 'Affiliate booking status updated successfully',
             'data' => $booking,
@@ -666,95 +609,6 @@ class AffiliateController extends Controller
         }
 
         return in_array($targetState, $allowedTransitions[$currentState], true);
-    }
-
-    private function normalizePercentages($affiliatePercentInput, $platformPercentInput): array
-    {
-        $affiliatePercent = $affiliatePercentInput !== null ? (float) $affiliatePercentInput : null;
-        $platformPercent = $platformPercentInput !== null ? (float) $platformPercentInput : null;
-
-        if ($affiliatePercent === null && $platformPercent === null) {
-            $affiliatePercent = 70.0;
-            $platformPercent = 30.0;
-        } elseif ($affiliatePercent !== null && $platformPercent === null) {
-            $platformPercent = 100 - $affiliatePercent;
-        } elseif ($affiliatePercent === null && $platformPercent !== null) {
-            $affiliatePercent = 100 - $platformPercent;
-        }
-
-        $total = round($affiliatePercent + $platformPercent, 2);
-        if ($total !== 100.0) {
-            throw new HttpResponseException(response()->json([
-                'message' => 'Validation failed',
-                'errors' => [
-                    'percentages' => ['affiliate_payout_percent and platform_commission_percent must total 100'],
-                ],
-            ], 422));
-        }
-
-        return [round($affiliatePercent, 2), round($platformPercent, 2)];
-    }
-
-    private function calculateSettlementAmounts(Booking $booking, float $affiliatePercent, float $platformPercent, string $currency): array
-    {
-        $grossAmount = (float) ($booking->final_price ?? $booking->total_price ?? 0);
-        $affiliateAmount = round($grossAmount * ($affiliatePercent / 100), 2);
-        $platformAmount = round($grossAmount * ($platformPercent / 100), 2);
-
-        return [
-            'gross_amount' => $grossAmount,
-            'affiliate_percent' => $affiliatePercent,
-            'platform_percent' => $platformPercent,
-            'affiliate_amount' => $affiliateAmount,
-            'platform_amount' => $platformAmount,
-            'currency' => strtolower($currency ?: 'usd'),
-            'status' => $booking->settlement?->status,
-        ];
-    }
-
-    private function createOrRefreshSettlementForAcceptedBooking(Booking $booking, Affiliate $affiliate): void
-    {
-        $calc = $this->calculateSettlementAmounts(
-            $booking,
-            (float) $affiliate->affiliate_payout_percent,
-            (float) $affiliate->platform_commission_percent,
-            (string) ($affiliate->payout_currency ?: 'usd')
-        );
-
-        AffiliateBookingSettlement::updateOrCreate(
-            ['booking_id' => $booking->id],
-            [
-                'affiliate_id' => $affiliate->id,
-                'gross_amount' => $calc['gross_amount'],
-                'affiliate_percent' => $calc['affiliate_percent'],
-                'platform_percent' => $calc['platform_percent'],
-                'affiliate_amount' => $calc['affiliate_amount'],
-                'platform_amount' => $calc['platform_amount'],
-                'currency' => $calc['currency'],
-                'status' => 'pending',
-                'status_reason' => null,
-                'accepted_at' => now(),
-            ]
-        );
-    }
-
-    private function zeroOutSettlementForCancelledBooking(Booking $booking, Affiliate $affiliate): void
-    {
-        AffiliateBookingSettlement::updateOrCreate(
-            ['booking_id' => $booking->id],
-            [
-                'affiliate_id' => $affiliate->id,
-                'gross_amount' => 0,
-                'affiliate_percent' => (float) $affiliate->affiliate_payout_percent,
-                'platform_percent' => (float) $affiliate->platform_commission_percent,
-                'affiliate_amount' => 0,
-                'platform_amount' => 0,
-                'currency' => strtolower((string) ($affiliate->payout_currency ?: 'usd')),
-                'status' => 'pending',
-                'status_reason' => 'booking_cancelled',
-                'accepted_at' => now(),
-            ]
-        );
     }
 
     private function isAffiliateDriverAvailable(Booking $booking, int $driverId): bool

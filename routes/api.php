@@ -13,16 +13,13 @@ use App\Http\Controllers\DriverController;
 use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\SystemConfigController;
-use App\Http\Controllers\BookingPaymentController;
 use App\Http\Controllers\BookingLiveLocationController;
-use App\Http\Controllers\AffiliateSettlementController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Broadcasting\BroadcastController;
 
 
-// Register and login routes for Users without authentication middleware
-Route::post('user/register', [UserController::class, 'register']);
+// User login is public. Initial admins are created with `php artisan user:create-admin`.
 Route::post('user/login', [UserController::class, 'login']);
 // Route::post('user/forgot-password', [UserController::class, 'forgotPassword']);
 
@@ -100,7 +97,7 @@ Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('custome
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->delete('customers/{id}', [CustomerController::class, 'destroy']);
 
 // Booking routes
-Route::post('bookings', [BookingController::class, 'store']); // public: quote + create
+Route::post('bookings', [BookingController::class, 'store']); // public booking request
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('bookings', [BookingController::class, 'index']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('bookings/export/csv', [BookingController::class, 'exportCsv']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('bookings/dashboard-summary', [BookingController::class, 'dashboardSummary']);
@@ -119,18 +116,6 @@ Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('booking
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('bookings/{id}/update-status', [BookingController::class, 'updateStatusOnly']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('bookings/{id}/cancel', [BookingController::class, 'cancelBooking']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->delete('bookings/{id}', [BookingController::class, 'destroy']);
-
-// Affiliate settlement routes (admin/dispatcher)
-Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('affiliate-settlements', [AffiliateSettlementController::class, 'index']);
-Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('affiliate-settlements/{id}', [AffiliateSettlementController::class, 'show']);
-Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('affiliate-settlements/{id}/disburse', [AffiliateSettlementController::class, 'disburse']);
-Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('affiliate-disbursements', [AffiliateSettlementController::class, 'disbursements']);
-
-// Booking payment routes
-Route::post('payments/webhook/stripe', [BookingPaymentController::class, 'webhook']);
-Route::middleware(['auth:sanctum'])->get('bookings/{id}/payment', [BookingPaymentController::class, 'show']);
-Route::post('bookings/{id}/payment/authorize', [BookingPaymentController::class, 'authorizePayment']);
-Route::middleware(['auth:sanctum'])->post('bookings/{id}/payment/capture', [BookingPaymentController::class, 'capturePayment']);
 
 // Broadcast auth for Sanctum tokens (private channels from SPA/dashboard)
 Route::middleware(['auth:sanctum'])->post('broadcasting/auth', [BroadcastController::class, 'authenticate']);
@@ -164,7 +149,5 @@ Route::middleware(['auth:sanctum', 'abilities:affiliate'])->post('affiliate/driv
 Route::middleware(['auth:sanctum', 'abilities:affiliate'])->get('affiliate/drivers/{id}', [AffiliateDriverController::class, 'show']);
 Route::middleware(['auth:sanctum', 'abilities:affiliate'])->post('affiliate/drivers/{id}/update', [AffiliateDriverController::class, 'update']);
 Route::middleware(['auth:sanctum', 'abilities:affiliate'])->delete('affiliate/drivers/{id}', [AffiliateDriverController::class, 'destroy']);
-Route::middleware(['auth:sanctum', 'abilities:affiliate'])->get('affiliate/settlements', [AffiliateSettlementController::class, 'mySettlements']);
-Route::middleware(['auth:sanctum', 'abilities:affiliate'])->get('affiliate/disbursements', [AffiliateSettlementController::class, 'myDisbursements']);
 
 // Route::apiResource('affiliateclicks', AffiliateclickController::class);

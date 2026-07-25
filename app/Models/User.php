@@ -61,10 +61,4 @@ class User extends Authenticatable
     {
         return $this->hasMany(BookingActivity::class, 'admin_user_id');
     }
-
-    public function affiliateDisbursements()
-    {
-        return $this->hasMany(AffiliateDisbursement::class, 'processed_by_user_id');
-    }
-
 }

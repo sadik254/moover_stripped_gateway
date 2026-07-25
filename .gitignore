@@ -16,6 +16,8 @@
 /public/build
 /public/hot
 /public/storage
+/non-financial-cleanup-summary.md
+/non-financial-cleanup-followup.md
 /storage/*.key
 /storage/pail
 /vendor

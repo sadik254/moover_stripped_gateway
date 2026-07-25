@@ -4,25 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Models\Booking;
 use App\Models\BookingActivity;
-use App\Models\BookingPayment;
 use App\Models\Company;
 use App\Models\Customer;
 use App\Models\Driver;
-use App\Models\Affiliate;
-use App\Models\AffiliateBookingSettlement;
-use App\Models\AffiliateDisbursement;
-use App\Models\SystemConfig;
 use App\Models\User;
 use App\Models\Vehicle;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
-use Stripe\Exception\ApiErrorException;
-use Stripe\PaymentIntent;
-use Stripe\Stripe;
 
 class BookingController extends Controller
 {
@@ -175,12 +166,7 @@ class BookingController extends Controller
                 'driver_name',
                 'vehicle_id',
                 'vehicle_name',
-                'distance_km',
                 'hours',
-                'total_price',
-                'final_price',
-                'payment_method',
-                'payment_status',
                 'created_at',
                 'updated_at',
             ]);
@@ -202,12 +188,7 @@ class BookingController extends Controller
                     $booking->driver?->name,
                     $booking->vehicle_id,
                     $booking->vehicle?->name,
-                    $booking->distance_km,
                     $booking->hours,
-                    $booking->total_price,
-                    $booking->final_price,
-                    $booking->payment_method,
-                    $booking->payment_status,
                     $booking->created_at,
                     $booking->updated_at,
                 ]);
@@ -278,11 +259,10 @@ class BookingController extends Controller
             ->where('available', true)
             ->count();
 
-        $earningsToday = (clone $baseQuery)
+        $completedToday = (clone $baseQuery)
             ->where('status', 'completed')
-            ->where('payment_status', 'paid')
             ->whereBetween('updated_at', [$todayStart, $todayEnd])
-            ->sum('final_price');
+            ->count();
 
         return response()->json([
             'data' => [
@@ -296,7 +276,7 @@ class BookingController extends Controller
                 ],
                 'total_trips_lifetime' => $totalTripsLifetime,
                 'drivers_available_for_dispatch' => $driversAvailable,
-                'earnings_today' => round((float) $earningsToday, 2),
+                'completed_today' => $completedToday,
             ],
         ]);
     }
@@ -336,34 +316,36 @@ class BookingController extends Controller
 
         $completedStatuses = ['completed', 'done'];
 
-        $totalRevenue = $this->sumRevenue($company->id, $start, $end, $completedStatuses);
-        $completedRevenue = $this->sumCompletedRevenue($company->id, $start, $end, $completedStatuses);
-        $completedTrips = $this->countCompletedTrips($company->id, $start, $end, $completedStatuses);
-        $avgTripValue = $completedTrips > 0 ? round($completedRevenue / $completedTrips, 2) : 0.0;
-        $affiliatePayout = $this->sumAffiliatePayout($company->id, $start, $end);
-        $netProfit = round($totalRevenue - $affiliatePayout, 2);
+        $totalBookings = Booking::where('company_id', $company->id)
+            ->whereBetween('pickup_time', [$start, $end])
+            ->count();
+        $completedTrips = Booking::where('company_id', $company->id)
+            ->whereBetween('pickup_time', [$start, $end])
+            ->whereIn('status', $completedStatuses)
+            ->count();
+        $avgTripsPerDay = round($totalBookings / max($start->diffInDays($end) + 1, 1), 2);
 
         $comparison = null;
         if (! $hasCustomRange) {
             $lastStart = $start->copy()->subMonthNoOverflow()->startOfMonth();
             $lastEnd = $start->copy()->subMonthNoOverflow()->endOfMonth();
 
-            $lastTotalRevenue = $this->sumRevenue($company->id, $lastStart, $lastEnd, $completedStatuses);
-            $lastCompletedRevenue = $this->sumCompletedRevenue($company->id, $lastStart, $lastEnd, $completedStatuses);
+            $lastTotalBookings = Booking::where('company_id', $company->id)
+                ->whereBetween('pickup_time', [$lastStart, $lastEnd])
+                ->count();
             $lastCompletedTrips = $this->countCompletedTrips($company->id, $lastStart, $lastEnd, $completedStatuses);
-            $lastAvgTripValue = $lastCompletedTrips > 0 ? round($lastCompletedRevenue / $lastCompletedTrips, 2) : 0.0;
-            $lastAffiliatePayout = $this->sumAffiliatePayout($company->id, $lastStart, $lastEnd);
-            $lastNetProfit = round($lastTotalRevenue - $lastAffiliatePayout, 2);
 
             $comparison = [
-                'total_revenue_percent' => $this->percentageChange((int) round($totalRevenue * 100), (int) round($lastTotalRevenue * 100)),
+                'total_bookings_percent' => $this->percentageChange($totalBookings, $lastTotalBookings),
                 'completed_trips_percent' => $this->percentageChange($completedTrips, $lastCompletedTrips),
-                'avg_trip_value_percent' => $this->percentageChange((int) round($avgTripValue * 100), (int) round($lastAvgTripValue * 100)),
-                'net_profit_percent' => $this->percentageChange((int) round($netProfit * 100), (int) round($lastNetProfit * 100)),
+                'avg_trips_per_day_percent' => $this->percentageChange(
+                    (int) round($avgTripsPerDay * 100),
+                    (int) round((($lastTotalBookings / max($lastStart->diffInDays($lastEnd) + 1, 1)) * 100))
+                ),
             ];
         }
 
-        $dailyRevenue = $this->buildDailyRevenueSeries($company->id, $completedStatuses, $hasCustomRange ? $end : now());
+        $dailyBookings = $this->buildDailyBookingSeries($company->id, $completedStatuses, $hasCustomRange ? $end : now());
         $vehicleUtilization = $this->buildVehicleUtilization($company->id, $start, $end, $completedStatuses);
         $topDrivers = $this->buildTopDrivers($company->id, $start, $end, $completedStatuses);
 
@@ -373,12 +355,11 @@ class BookingController extends Controller
                     'from' => $start->toDateString(),
                     'to' => $end->toDateString(),
                 ],
-                'total_revenue' => round($totalRevenue, 2),
+                'total_bookings' => $totalBookings,
                 'completed_trips' => $completedTrips,
-                'avg_trip_value' => round($avgTripValue, 2),
-                'net_profit' => $netProfit,
+                'avg_trips_per_day' => $avgTripsPerDay,
                 'comparison_vs_last_month' => $comparison,
-                'last_7_days_revenue' => $dailyRevenue,
+                'last_7_days_bookings' => $dailyBookings,
                 'vehicle_utilization' => $vehicleUtilization,
                 'top_drivers' => $topDrivers,
             ],
@@ -407,63 +388,23 @@ class BookingController extends Controller
             ->whereIn('status', $pendingStatuses);
 
         $pendingCount = (clone $pendingBookings)->count();
-        $pendingEstimatedTotal = (float) (clone $pendingBookings)
-            ->selectRaw('SUM(COALESCE(final_price, total_price, 0)) as total')
-            ->value('total');
-
         $dueCount = $pendingCount;
-
-        $pendingAffiliateStatuses = ['pending', 'ready', 'on_hold', 'failed'];
-        $pendingAffiliateCommission = (float) AffiliateBookingSettlement::query()
-            ->join('bookings', 'affiliate_booking_settlements.booking_id', '=', 'bookings.id')
-            ->where('bookings.company_id', $company->id)
-            ->whereBetween('bookings.pickup_time', [$start, $end])
-            ->whereIn('affiliate_booking_settlements.status', $pendingAffiliateStatuses)
-            ->sum('affiliate_booking_settlements.affiliate_amount');
-
-        $lastBookingPayments = BookingPayment::query()
-            ->join('bookings', 'booking_payments.booking_id', '=', 'bookings.id')
-            ->where('bookings.company_id', $company->id)
-            ->selectRaw("
-                booking_payments.id as transaction_id,
-                'booking_payment' as type,
-                booking_payments.booking_id as booking_id,
-                NULL as affiliate_id,
-                COALESCE(booking_payments.captured_amount, booking_payments.authorized_amount, booking_payments.estimated_amount, 0) as amount,
-                booking_payments.currency as currency,
-                booking_payments.status as status,
-                booking_payments.created_at as created_at
-            ");
-
-        $lastDisbursements = AffiliateDisbursement::query()
-            ->join('bookings', 'affiliate_disbursements.booking_id', '=', 'bookings.id')
-            ->where('bookings.company_id', $company->id)
-            ->selectRaw("
-                affiliate_disbursements.id as transaction_id,
-                'affiliate_disbursement' as type,
-                affiliate_disbursements.booking_id as booking_id,
-                affiliate_disbursements.affiliate_id as affiliate_id,
-                affiliate_disbursements.amount as amount,
-                affiliate_disbursements.currency as currency,
-                affiliate_disbursements.status as status,
-                affiliate_disbursements.created_at as created_at
-            ");
-
-        $lastTransactions = $lastBookingPayments
-            ->unionAll($lastDisbursements)
-            ->orderByDesc('created_at')
+        $lastUpdates = BookingActivity::with([
+                'adminUser:id,name,email,user_type',
+                'booking:id,status,pickup_time,dropoff_time',
+            ])
+            ->where('company_id', $company->id)
+            ->orderByDesc('id')
             ->limit(10)
             ->get()
-            ->map(function ($row) {
+            ->map(function ($activity) {
                 return [
-                    'transaction_id' => (int) $row->transaction_id,
-                    'type' => $row->type,
-                    'booking_id' => $row->booking_id ? (int) $row->booking_id : null,
-                    'affiliate_id' => $row->affiliate_id ? (int) $row->affiliate_id : null,
-                    'amount' => round((float) $row->amount, 2),
-                    'currency' => $row->currency,
-                    'status' => $row->status,
-                    'created_at' => $row->created_at,
+                    'activity_id' => (int) $activity->id,
+                    'booking_id' => (int) $activity->booking_id,
+                    'action' => $activity->action,
+                    'description' => $activity->description,
+                    'booking_status' => $activity->booking?->status,
+                    'created_at' => $activity->created_at,
                 ];
             });
 
@@ -476,13 +417,9 @@ class BookingController extends Controller
                 'pending_collections' => [
                     'pending_count' => $pendingCount,
                     'due_count' => $dueCount,
-                    'estimated_total' => round($pendingEstimatedTotal, 2),
+                    'operational_queue' => $pendingCount,
                 ],
-                'pending_affiliate_commissions' => [
-                    'total' => round($pendingAffiliateCommission, 2),
-                    'statuses' => $pendingAffiliateStatuses,
-                ],
-                'last_10_transactions' => $lastTransactions,
+                'last_10_updates' => $lastUpdates,
             ],
         ]);
     }
@@ -554,7 +491,7 @@ class BookingController extends Controller
 
         $query = BookingActivity::with([
                 'adminUser:id,name,email,user_type',
-                'booking:id,status,pickup_time,dropoff_time,total_price,final_price',
+                'booking:id,status,pickup_time,dropoff_time',
             ])
             ->where('company_id', $company->id);
 
@@ -671,20 +608,7 @@ class BookingController extends Controller
             'bags'            => 'nullable|integer|min:0',
             'flight_number'   => 'nullable|string|max:100',
             'airlines'        => 'nullable|string|max:100',
-            'distance_km'     => [
-                Rule::requiredIf(fn () => $request->service_type !== 'hourly'),
-                'numeric',
-                'min:0',
-                'nullable',
-            ],
             'hours'           => 'nullable|numeric|min:0',
-            'extras_price'    => 'nullable|numeric|min:0',
-            'parking'         => 'nullable|numeric|min:0',
-            'others'          => 'nullable|numeric|min:0',
-            'airport_fees'    => 'nullable|numeric|min:0',
-            'congestion_charge' => 'nullable|numeric|min:0',
-            'payment_method'  => 'nullable|string|max:100',
-            'payment_status'  => 'nullable|string|max:100',
             'status'          => ['nullable', Rule::in(['pending', 'confirmed', 'assigned', 'on_route', 'completed', 'cancelled', 'done'])],
             'notes'           => 'nullable|string',
         ]);
@@ -725,71 +649,23 @@ class BookingController extends Controller
 
         $pickup = Carbon::parse($request->pickup_time);
         $dropoff = $request->filled('dropoff_time') ? Carbon::parse($request->dropoff_time) : null;
-
         $unavailableVehicleIds = $this->getUnavailableVehicleIds($company->id, $pickup, $dropoff);
 
-        $vehicles = Vehicle::with('vehicleClass:id,name')
-            ->whereNotIn('id', $unavailableVehicleIds)
-            ->get();
-
-        $passengers = (int) $request->passengers;
-        $minCap = $passengers + 2;
-        $maxCap = $passengers + 4;
-
-        $systemConfig = $this->getSystemConfig($company->id);
-
-        $vehicleOptions = $vehicles->map(function ($vehicle) use ($request, $minCap, $maxCap, $systemConfig) {
-            $priceCalculation = $this->calculatePrice($vehicle, $this->buildPriceInput($request, $systemConfig));
-
-            $capacity = (int) ($vehicle->capacity ?? 0);
-            $recommended = $capacity >= $minCap && $capacity <= $maxCap;
-
-            return [
-                'vehicle_id' => $vehicle->id,
-                'name' => $vehicle->name,
-                'class' => $vehicle->vehicleClass?->name,
-                'image' => $vehicle->image,
-                'capacity' => $vehicle->capacity,
-                'rate' => $priceCalculation['rate'],
-                'base_price' => $priceCalculation['base_price'],
-                'distance_km' => $priceCalculation['distance_km'],
-                'hours' => $priceCalculation['hours'],
-                'total_price' => $priceCalculation['total_price'],
-                'calculation' => $this->buildCalculationBreakdown($priceCalculation),
-                'recommended' => $recommended,
-            ];
-        })->values();
-
-        if (! $request->filled('vehicle_id')) {
-            return response()->json([
-                'data' => [
-                    'service_type' => $request->service_type,
-                    'passengers' => (int) $request->passengers,
-                    'distance_km' => (float) ($request->distance_km ?? 0),
-                    'hours' => (float) ($request->hours ?? 0),
-                    'vehicle_options' => $vehicleOptions,
-                ],
-            ]);
-        }
-
-        if (in_array((int) $request->vehicle_id, $unavailableVehicleIds, true)) {
+        if ($request->filled('vehicle_id') && in_array((int) $request->vehicle_id, $unavailableVehicleIds, true)) {
             return response()->json([
                 'message' => 'Selected vehicle is not available for the requested time'
             ], 409);
         }
 
-        $vehicle = $vehicles->firstWhere('id', (int) $request->vehicle_id) ?? Vehicle::find($request->vehicle_id);
-        if (! $vehicle) {
+        $vehicle = $request->filled('vehicle_id') ? Vehicle::find($request->vehicle_id) : null;
+        if ($request->filled('vehicle_id') && ! $vehicle) {
             return response()->json([
                 'message' => 'Vehicle not found'
             ], 404);
         }
 
         try {
-            $booking = DB::transaction(function () use ($request, $company, $vehicle, $authUser) {
-                $systemConfig = $this->getSystemConfig($company->id);
-                $priceCalculation = $this->calculatePrice($vehicle, $this->buildPriceInput($request, $systemConfig));
-
+            $booking = DB::transaction(function () use ($request, $company, $authUser, $vehicle) {
                 $data = $request->only([
                     'customer_id',
                     'name',
@@ -807,37 +683,12 @@ class BookingController extends Controller
                     'bags',
                     'flight_number',
                     'airlines',
-                    'distance_km',
                     'hours',
-                    'extras_price',
-                    'parking',
-                    'others',
-                    'airport_fees',
-                    'congestion_charge',
-                    'payment_method',
-                    'payment_status',
                     'status',
                     'notes',
                 ]);
 
                 $data['company_id'] = $company->id;
-                $data['base_price'] = $priceCalculation['base_price'];
-                $data['taxes'] = $priceCalculation['tax_rate'];
-                $data['taxes_amount'] = $priceCalculation['taxes_amount'];
-                $data['gratuity'] = $priceCalculation['gratuity_percentage'];
-                $data['gratuity_amount'] = $priceCalculation['gratuity_amount'];
-                $data['rate_buffer'] = $priceCalculation['rate_buffer'];
-                $data['rate_buffer_amount'] = $priceCalculation['buffer_amount'];
-                $data['surge_rate'] = $priceCalculation['surge_rate'];
-                $data['surge_rate_amount'] = $priceCalculation['surge_rate_amount'];
-                $data['cancellation_fee'] = $priceCalculation['cancellation_fee'];
-                $data['total_price'] = $priceCalculation['total_price'];
-                $data['final_price'] = $priceCalculation['total_price'];
-
-                $isGuestBooking = ! ($authUser instanceof Customer) && ! ($authUser instanceof User);
-                if ($isGuestBooking) {
-                    $data['booking_access_token'] = Str::random(64);
-                }
 
                 if ($authUser instanceof Customer) {
                     $data['customer_id'] = $authUser->id;
@@ -854,28 +705,10 @@ class BookingController extends Controller
                     }
                 }
 
-                $booking = Booking::create($data);
-                $booking->setAttribute('price_calculation', $priceCalculation);
-                if ($isGuestBooking) {
-                    $booking->setAttribute('issued_booking_access_token', $data['booking_access_token']);
-                }
-
-                return $booking;
+                return Booking::create($data);
             });
 
             $freshBooking = $booking->fresh();
-            $calc = $booking->getAttribute('price_calculation');
-            $issuedBookingAccessToken = $booking->getAttribute('issued_booking_access_token');
-
-            $response = [
-                'message' => 'Booking created successfully',
-                'data' => $freshBooking,
-                'calculation' => $this->buildCalculationBreakdown($calc),
-            ];
-
-            if ($issuedBookingAccessToken) {
-                $response['booking_access_token'] = $issuedBookingAccessToken;
-            }
 
             $this->logBookingActivity(
                 request: $request,
@@ -889,12 +722,13 @@ class BookingController extends Controller
                     'vehicle_id' => $freshBooking->vehicle_id,
                     'driver_id' => $freshBooking->driver_id,
                     'pickup_time' => $freshBooking->pickup_time,
-                    'total_price' => $freshBooking->total_price,
-                    'final_price' => $freshBooking->final_price,
                 ]
             );
 
-            return response()->json($response, 201);
+            return response()->json([
+                'message' => 'Booking created successfully',
+                'data' => $freshBooking,
+            ], 201);
 
         } catch (\Exception $e) {
             return response()->json([
@@ -961,23 +795,7 @@ class BookingController extends Controller
             'dropoff_address',
             'pickup_time',
             'dropoff_time',
-            'distance_km',
             'hours',
-            'base_price',
-            'extras_price',
-            'taxes',
-            'taxes_amount',
-            'gratuity',
-            'gratuity_amount',
-            'rate_buffer',
-            'rate_buffer_amount',
-            'surge_rate',
-            'surge_rate_amount',
-            'cancellation_fee',
-            'total_price',
-            'final_price',
-            'payment_method',
-            'payment_status',
             'notes',
         ]);
 
@@ -998,21 +816,7 @@ class BookingController extends Controller
             'bags'            => 'sometimes|nullable|integer|min:0',
             'flight_number'   => 'sometimes|nullable|string|max:100',
             'airlines'        => 'sometimes|nullable|string|max:100',
-            'distance_km'     => [
-                'sometimes',
-                Rule::requiredIf(fn () => $request->input('service_type', $booking->service_type) !== 'hourly'),
-                'numeric',
-                'min:0',
-                'nullable',
-            ],
             'hours'           => 'sometimes|nullable|numeric|min:0',
-            'extras_price'    => 'sometimes|nullable|numeric|min:0',
-            'parking'         => 'sometimes|nullable|numeric|min:0',
-            'others'          => 'sometimes|nullable|numeric|min:0',
-            'airport_fees'    => 'sometimes|nullable|numeric|min:0',
-            'congestion_charge' => 'sometimes|nullable|numeric|min:0',
-            'payment_method'  => 'sometimes|nullable|string|max:100',
-            'payment_status'  => 'sometimes|nullable|string|max:100',
             'status'          => ['sometimes', Rule::in(['pending', 'confirmed', 'assigned', 'on_route', 'completed', 'cancelled', 'done'])],
             'notes'           => 'sometimes|nullable|string',
         ]);
@@ -1042,7 +846,6 @@ class BookingController extends Controller
             }
         }
 
-        // Check vehicle availability if time or vehicle is being changed
         $isTimeOrVehicleChanged = $request->hasAny(['pickup_time', 'dropoff_time', 'vehicle_id']);
 
         if ($isTimeOrVehicleChanged) {
@@ -1068,7 +871,6 @@ class BookingController extends Controller
             DB::transaction(function () use ($request, $booking) {
                 $authUser = $request->user();
 
-                // If authenticated user is a Customer, prevent overriding customer data
                 if ($authUser instanceof Customer) {
                     $fillableData = $request->except(['customer_id', 'name', 'email', 'phone']);
                     $booking->fill($fillableData);
@@ -1090,112 +892,20 @@ class BookingController extends Controller
                         'bags',
                         'flight_number',
                         'airlines',
-                        'distance_km',
                         'hours',
-                        'extras_price',
-                        'parking',
-                        'others',
-                        'airport_fees',
-                        'congestion_charge',
-                        'payment_method',
-                        'payment_status',
                         'status',
                         'notes',
                     ]));
                 }
 
-                $latestPriceCalculation = null;
-                $isCancelled = (string) $booking->status === 'cancelled';
-
-                if ($isCancelled) {
-                    $systemConfig = $this->getSystemConfig($booking->company_id);
-                    $latestPriceCalculation = $this->buildCancellationPriceCalculation(
-                        cancellationFee: (float) ($systemConfig->cancellation_fee ?? 0),
-                        serviceType: (string) ($booking->service_type ?? 'custom')
-                    );
-
-                    $booking->base_price = 0;
-                    $booking->extras_price = 0;
-                    $booking->parking = 0;
-                    $booking->others = 0;
-                    $booking->airport_fees = 0;
-                    $booking->congestion_charge = 0;
-                    $booking->taxes = 0;
-                    $booking->taxes_amount = 0;
-                    $booking->gratuity = 0;
-                    $booking->gratuity_amount = 0;
-                    $booking->rate_buffer = 0;
-                    $booking->rate_buffer_amount = 0;
-                    $booking->surge_rate = 0;
-                    $booking->surge_rate_amount = 0;
-                    $booking->cancellation_fee = $latestPriceCalculation['cancellation_fee'];
-                    $booking->total_price = $latestPriceCalculation['total_price'];
-                    $booking->final_price = $latestPriceCalculation['total_price'];
-                }
-
-                $recalc = ! $isCancelled && $request->hasAny([
-                    'vehicle_id',
-                    'service_type',
-                    'distance_km',
-                    'hours',
-                    'extras_price',
-                    'parking',
-                    'others',
-                    'airport_fees',
-                    'congestion_charge',
-                    'status',
-                ]);
-
-                if ($recalc) {
-                    $vehicle = Vehicle::find($booking->vehicle_id);
-                    $systemConfig = $this->getSystemConfig($booking->company_id);
-                    $priceCalculation = $this->calculatePrice($vehicle, $this->buildPriceInput($booking, $systemConfig));
-
-                    $booking->base_price = $priceCalculation['base_price'];
-                    $booking->taxes = $priceCalculation['tax_rate'];
-                    $booking->taxes_amount = $priceCalculation['taxes_amount'];
-                    $booking->gratuity = $priceCalculation['gratuity_percentage'];
-                    $booking->gratuity_amount = $priceCalculation['gratuity_amount'];
-                    $booking->rate_buffer = $priceCalculation['rate_buffer'];
-                    $booking->rate_buffer_amount = $priceCalculation['buffer_amount'];
-                    $booking->surge_rate = $priceCalculation['surge_rate'];
-                    $booking->surge_rate_amount = $priceCalculation['surge_rate_amount'];
-                    $booking->cancellation_fee = $priceCalculation['cancellation_fee'];
-                    $booking->total_price = $priceCalculation['total_price'];
-                    $booking->final_price = $priceCalculation['total_price'];
-                    $latestPriceCalculation = $priceCalculation;
-                }
-
                 $booking->save();
-
-                // expose latest pricing flow after any update
-                if (! $latestPriceCalculation) {
-                    $vehicle = Vehicle::find($booking->vehicle_id);
-                    $systemConfig = $this->getSystemConfig($booking->company_id);
-                    $latestPriceCalculation = $this->calculatePrice($vehicle, $this->buildPriceInput($booking, $systemConfig));
-                }
-
-                $booking->setAttribute('price_calculation', $latestPriceCalculation);
             });
 
             $freshBooking = $booking->fresh();
-            $calc = $booking->getAttribute('price_calculation');
-            $cancellationPayment = null;
-
-            if ((string) $freshBooking->status === 'cancelled') {
-                $this->syncAffiliateSettlementOnCancellation($freshBooking);
-                $cancellationPayment = $this->captureCancellationPayment($freshBooking);
-            }
-
             $response = [
                 'message' => 'Booking updated successfully',
                 'data' => $freshBooking,
-                'calculation' => $this->buildCalculationBreakdown($calc),
             ];
-
-            if ($cancellationPayment) {
-                $response['cancellation_payment'] = $cancellationPayment;
-            }
 
             $afterSnapshot = $freshBooking->only(array_keys($beforeSnapshot));
             [$oldValues, $newValues] = $this->diffValues($beforeSnapshot, $afterSnapshot);
@@ -1256,9 +966,6 @@ class BookingController extends Controller
             'driver_id',
             'pickup_time',
             'dropoff_time',
-            'total_price',
-            'final_price',
-            'payment_status',
         ]);
 
         $this->logBookingActivity(
@@ -1457,40 +1164,8 @@ class BookingController extends Controller
         $oldValues = ['status' => $booking->status];
         $booking->status = (string) $request->status;
 
-        if ($booking->status === 'cancelled') {
-            $systemConfig = $this->getSystemConfig($booking->company_id);
-            $priceCalculation = $this->buildCancellationPriceCalculation(
-                cancellationFee: (float) ($systemConfig->cancellation_fee ?? 0),
-                serviceType: (string) ($booking->service_type ?? 'custom')
-            );
-
-            $booking->base_price = 0;
-            $booking->extras_price = 0;
-            $booking->parking = 0;
-            $booking->others = 0;
-            $booking->airport_fees = 0;
-            $booking->congestion_charge = 0;
-            $booking->taxes = 0;
-            $booking->taxes_amount = 0;
-            $booking->gratuity = 0;
-            $booking->gratuity_amount = 0;
-            $booking->rate_buffer = 0;
-            $booking->rate_buffer_amount = 0;
-            $booking->surge_rate = 0;
-            $booking->surge_rate_amount = 0;
-            $booking->cancellation_fee = $priceCalculation['cancellation_fee'];
-            $booking->total_price = $priceCalculation['total_price'];
-            $booking->final_price = $priceCalculation['total_price'];
-        }
-
         $booking->save();
         $freshBooking = $booking->fresh();
-
-        $cancellationPayment = null;
-        if ((string) $freshBooking->status === 'cancelled') {
-            $this->syncAffiliateSettlementOnCancellation($freshBooking);
-            $cancellationPayment = $this->captureCancellationPayment($freshBooking);
-        }
 
         $this->logBookingActivity(
             request: $request,
@@ -1505,10 +1180,6 @@ class BookingController extends Controller
             'message' => 'Booking status updated successfully',
             'data' => $freshBooking,
         ];
-
-        if ($cancellationPayment) {
-            $response['cancellation_payment'] = $cancellationPayment;
-        }
 
         return response()->json($response);
     }
@@ -1542,54 +1213,12 @@ class BookingController extends Controller
 
         $oldValues = $booking->only([
             'status',
-            'base_price',
-            'extras_price',
-            'parking',
-            'others',
-            'airport_fees',
-            'congestion_charge',
-            'taxes',
-            'taxes_amount',
-            'gratuity',
-            'gratuity_amount',
-            'rate_buffer',
-            'rate_buffer_amount',
-            'surge_rate',
-            'surge_rate_amount',
-            'cancellation_fee',
-            'total_price',
-            'final_price',
         ]);
 
-        $systemConfig = $this->getSystemConfig($booking->company_id);
-        $priceCalculation = $this->buildCancellationPriceCalculation(
-            cancellationFee: (float) ($systemConfig->cancellation_fee ?? 0),
-            serviceType: (string) ($booking->service_type ?? 'custom')
-        );
-
         $booking->status = 'cancelled';
-        $booking->base_price = 0;
-        $booking->extras_price = 0;
-        $booking->parking = 0;
-        $booking->others = 0;
-        $booking->airport_fees = 0;
-        $booking->congestion_charge = 0;
-        $booking->taxes = 0;
-        $booking->taxes_amount = 0;
-        $booking->gratuity = 0;
-        $booking->gratuity_amount = 0;
-        $booking->rate_buffer = 0;
-        $booking->rate_buffer_amount = 0;
-        $booking->surge_rate = 0;
-        $booking->surge_rate_amount = 0;
-        $booking->cancellation_fee = $priceCalculation['cancellation_fee'];
-        $booking->total_price = $priceCalculation['total_price'];
-        $booking->final_price = $priceCalculation['total_price'];
         $booking->save();
 
         $freshBooking = $booking->fresh();
-        $this->syncAffiliateSettlementOnCancellation($freshBooking);
-        $cancellationPayment = $this->captureCancellationPayment($freshBooking);
 
         $this->logBookingActivity(
             request: $request,
@@ -1599,31 +1228,12 @@ class BookingController extends Controller
             oldValues: $oldValues,
             newValues: [
                 'status' => $freshBooking->status,
-                'base_price' => $freshBooking->base_price,
-                'extras_price' => $freshBooking->extras_price,
-                'parking' => $freshBooking->parking,
-                'others' => $freshBooking->others,
-                'airport_fees' => $freshBooking->airport_fees,
-                'congestion_charge' => $freshBooking->congestion_charge,
-                'taxes' => $freshBooking->taxes,
-                'taxes_amount' => $freshBooking->taxes_amount,
-                'gratuity' => $freshBooking->gratuity,
-                'gratuity_amount' => $freshBooking->gratuity_amount,
-                'rate_buffer' => $freshBooking->rate_buffer,
-                'rate_buffer_amount' => $freshBooking->rate_buffer_amount,
-                'surge_rate' => $freshBooking->surge_rate,
-                'surge_rate_amount' => $freshBooking->surge_rate_amount,
-                'cancellation_fee' => $freshBooking->cancellation_fee,
-                'total_price' => $freshBooking->total_price,
-                'final_price' => $freshBooking->final_price,
             ]
         );
 
         return response()->json([
             'message' => 'Booking cancelled successfully',
             'data' => $freshBooking,
-            'calculation' => $this->buildCalculationBreakdown($priceCalculation),
-            'cancellation_payment' => $cancellationPayment,
         ]);
     }
 
@@ -1635,14 +1245,6 @@ class BookingController extends Controller
         return Company::first();
     }
 
-    private function getSystemConfig(int $companyId): ?SystemConfig
-    {
-        return SystemConfig::where('company_id', $companyId)->first();
-    }
-
-    /**
-     * Get unavailable vehicle IDs for the given time range
-     */
     private function getUnavailableVehicleIds(int $companyId, Carbon $pickup, ?Carbon $dropoff, ?int $excludeBookingId = null): array
     {
         $windowStart = $dropoff ? $pickup : $pickup->copy()->subHours(2);
@@ -1660,7 +1262,6 @@ class BookingController extends Controller
                 });
             });
 
-        // Exclude the current booking when updating
         if ($excludeBookingId) {
             $query->where('id', '!=', $excludeBookingId);
         }
@@ -1700,138 +1301,6 @@ class BookingController extends Controller
             ->all();
     }
 
-    /**
-     * Calculate price for a vehicle and booking data
-     */
-    private function calculatePrice(Vehicle $vehicle, array $data): array
-    {
-        $serviceType = $data['service_type'];
-        $distanceKm = (float) $data['distance_km'];
-        $hours = (float) $data['hours'];
-        $basePrice = (float) $data['base_price'];
-        $extrasPrice = (float) $data['extras_price'];
-        $taxRate = (float) $data['tax_rate'];
-        $rateBuffer = (float) $data['rate_buffer'];
-        $gratuityPercentage = (float) $data['gratuity_percentage'];
-        $surgeRate = (float) $data['surge_rate'];
-        $configuredCancellationFee = (float) $data['cancellation_fee'];
-        $status = (string) ($data['status'] ?? '');
-        $parking = (float) $data['parking'];
-        $others = (float) $data['others'];
-        $airportFees = (float) $data['airport_fees'];
-        $congestionCharge = (float) $data['congestion_charge'];
-
-        $rate = 0;
-        $units = 0;
-
-        switch ($serviceType) {
-            case 'hourly':
-                $rate = (float) ($vehicle->hourly_rate ?? 0);
-                $units = $hours;
-                break;
-            case 'airport':
-                $rate = (float) ($vehicle->airport_rate ?? 0);
-                $units = $distanceKm;
-                break;
-            case 'point_to_point':
-            case 'custom':
-            default:
-                $rate = (float) ($vehicle->per_km_rate ?? 0);
-                $units = $distanceKm;
-                break;
-        }
-
-        $cancellationFee = $status === 'cancelled' ? $configuredCancellationFee : 0;
-        $subtotal = $basePrice + ($units * $rate) + $extrasPrice + $parking + $others + $airportFees + $congestionCharge;
-        $surgeAmount = $subtotal * ($surgeRate / 100);
-        $taxesAmount = ($subtotal + $surgeAmount) * ($taxRate / 100);
-        $gratuityAmount = ($subtotal + $surgeAmount) * ($gratuityPercentage / 100);
-        $preAuthBase = $subtotal + $surgeAmount + $taxesAmount + $gratuityAmount + $cancellationFee;
-        $bufferAmount = $preAuthBase * ($rateBuffer / 100);
-        $total = $preAuthBase + $bufferAmount;
-
-        return [
-            'service_type' => $serviceType,
-            'rate' => $rate,
-            'units' => $units,
-            'base_price' => $basePrice,
-            'distance_km' => $distanceKm,
-            'hours' => $hours,
-            'extras_price' => $extrasPrice,
-            'tax_rate' => $taxRate,
-            'rate_buffer' => $rateBuffer,
-            'gratuity_percentage' => $gratuityPercentage,
-            'surge_rate' => $surgeRate,
-            'cancellation_fee' => $cancellationFee,
-            'subtotal' => $subtotal,
-            'surge_rate_amount' => $surgeAmount,
-            'taxes_amount' => $taxesAmount,
-            'gratuity_amount' => $gratuityAmount,
-            'parking' => $parking,
-            'others' => $others,
-            'airport_fees' => $airportFees,
-            'congestion_charge' => $congestionCharge,
-            'buffer_amount' => $bufferAmount,
-            'total_price' => $total,
-        ];
-    }
-
-    private function buildPriceInput($data, ?SystemConfig $config = null): array
-    {
-        return [
-            'service_type' => $data->service_type,
-            'distance_km' => (float) ($data->distance_km ?? 0),
-            'hours' => (float) ($data->hours ?? 0),
-            'base_price' => (float) ($config->base_price_flat ?? 0),
-            'extras_price' => (float) ($data->extras_price ?? 0),
-            'tax_rate' => (float) ($config->tax_rate ?? 0),
-            'rate_buffer' => (float) ($config->rate_buffer ?? 0),
-            'gratuity_percentage' => (float) ($config->gratuity_percentage ?? 0),
-            'surge_rate' => (float) ($config->surge_rate ?? 0),
-            'cancellation_fee' => (float) ($config->cancellation_fee ?? 0),
-            'status' => (string) ($data->status ?? ''),
-            'parking' => (float) ($data->parking ?? 0),
-            'others' => (float) ($data->others ?? 0),
-            'airport_fees' => (float) ($data->airport_fees ?? 0),
-            'congestion_charge' => (float) ($data->congestion_charge ?? 0),
-        ];
-    }
-
-    private function buildCalculationBreakdown(?array $priceCalculation): ?array
-    {
-        if (! $priceCalculation) {
-            return null;
-        }
-
-        $isHourly = ($priceCalculation['service_type'] ?? null) === 'hourly';
-        $billedField = $isHourly ? 'hours' : 'km';
-        $billedValue = $isHourly
-            ? (float) ($priceCalculation['hours'] ?? 0)
-            : (float) ($priceCalculation['distance_km'] ?? 0);
-
-        return [
-            'rate' => $priceCalculation['rate'],
-            $billedField => $billedValue,
-            'base_price' => $priceCalculation['base_price'],
-            'extras_price' => $priceCalculation['extras_price'],
-            'airport_fees' => $priceCalculation['airport_fees'],
-            'congestion_charge' => $priceCalculation['congestion_charge'],
-            'parking' => $priceCalculation['parking'],
-            'others' => $priceCalculation['others'],
-            'subtotal' => $priceCalculation['subtotal'],
-            'surge_rate_percent' => $priceCalculation['surge_rate'],
-            'surge_rate_amount' => $priceCalculation['surge_rate_amount'],
-            'tax_rate_percent' => $priceCalculation['tax_rate'],
-            'tax_amount' => $priceCalculation['taxes_amount'],
-            'gratuity_percent' => $priceCalculation['gratuity_percentage'],
-            'gratuity_amount' => $priceCalculation['gratuity_amount'],
-            'rate_buffer_percent' => $priceCalculation['rate_buffer'],
-            'rate_buffer_amount' => $priceCalculation['buffer_amount'],
-            'cancellation_fee' => $priceCalculation['cancellation_fee'],
-            'total_price' => $priceCalculation['total_price'],
-        ];
-    }
-
     private function percentageChange(int $today, int $yesterday): ?float
     {
         if ($yesterday === 0) {
@@ -1841,58 +1310,31 @@ class BookingController extends Controller
         return round((($today - $yesterday) / $yesterday) * 100, 2);
     }
 
-    private function sumRevenue(int $companyId, Carbon $start, Carbon $end, array $completedStatuses): float
-    {
-        return (float) Booking::where('company_id', $companyId)
-            ->where('payment_status', 'paid')
-            ->whereBetween('pickup_time', [$start, $end])
-            ->where(function ($query) use ($completedStatuses) {
-                $query->whereIn('status', $completedStatuses)
-                    ->orWhere('status', 'cancelled');
-            })
-            ->sum('final_price');
-    }
-
-    private function sumCompletedRevenue(int $companyId, Carbon $start, Carbon $end, array $completedStatuses): float
-    {
-        return (float) Booking::where('company_id', $companyId)
-            ->where('payment_status', 'paid')
-            ->whereBetween('pickup_time', [$start, $end])
-            ->whereIn('status', $completedStatuses)
-            ->sum('final_price');
-    }
-
     private function countCompletedTrips(int $companyId, Carbon $start, Carbon $end, array $completedStatuses): int
     {
         return (int) Booking::where('company_id', $companyId)
-            ->where('payment_status', 'paid')
             ->whereBetween('pickup_time', [$start, $end])
             ->whereIn('status', $completedStatuses)
             ->count();
     }
 
-    private function sumAffiliatePayout(int $companyId, Carbon $start, Carbon $end): float
-    {
-        return (float) AffiliateBookingSettlement::query()
-            ->join('bookings', 'affiliate_booking_settlements.booking_id', '=', 'bookings.id')
-            ->where('bookings.company_id', $companyId)
-            ->whereBetween('bookings.pickup_time', [$start, $end])
-            ->where('affiliate_booking_settlements.status', 'paid')
-            ->sum('affiliate_booking_settlements.affiliate_amount');
-    }
-
-    private function buildDailyRevenueSeries(int $companyId, array $completedStatuses, Carbon $endDate): array
+    private function buildDailyBookingSeries(int $companyId, array $completedStatuses, Carbon $endDate): array
     {
         $days = [];
+
         for ($i = 6; $i >= 0; $i--) {
-            $date = $endDate->copy()->subDays($i)->startOfDay();
+            $date = $endDate->copy()->subDays($i);
             $dayStart = $date->copy()->startOfDay();
             $dayEnd = $date->copy()->endOfDay();
 
-            $revenue = $this->sumRevenue($companyId, $dayStart, $dayEnd, $completedStatuses);
+            $count = Booking::where('company_id', $companyId)
+                ->whereBetween('pickup_time', [$dayStart, $dayEnd])
+                ->whereIn('status', $completedStatuses)
+                ->count();
+
             $days[] = [
                 'date' => $date->toDateString(),
-                'revenue' => round($revenue, 2),
+                'bookings' => $count,
             ];
         }
 
@@ -1902,7 +1344,6 @@ class BookingController extends Controller
     private function buildVehicleUtilization(int $companyId, Carbon $start, Carbon $end, array $completedStatuses): array
     {
         $rows = Booking::where('company_id', $companyId)
-            ->where('payment_status', 'paid')
             ->whereBetween('pickup_time', [$start, $end])
             ->whereIn('status', $completedStatuses)
             ->whereNotNull('vehicle_id')
@@ -1934,11 +1375,10 @@ class BookingController extends Controller
     private function buildTopDrivers(int $companyId, Carbon $start, Carbon $end, array $completedStatuses): array
     {
         $rows = Booking::where('company_id', $companyId)
-            ->where('payment_status', 'paid')
             ->whereBetween('pickup_time', [$start, $end])
             ->whereIn('status', $completedStatuses)
             ->whereNotNull('driver_id')
-            ->selectRaw('driver_id, COUNT(*) as trips, SUM(final_price) as revenue')
+            ->selectRaw('driver_id, COUNT(*) as trips')
             ->groupBy('driver_id')
             ->orderByDesc('trips')
             ->limit(3)
@@ -1958,7 +1398,6 @@ class BookingController extends Controller
                 'driver_id' => $row->driver_id,
                 'driver_name' => $driver?->name,
                 'trips' => (int) $row->trips,
-                'earned_revenue' => round((float) $row->revenue, 2),
             ];
         })->values()->all();
     }
@@ -2009,131 +1448,4 @@ class BookingController extends Controller
         ]);
     }
 
-    private function syncAffiliateSettlementOnCancellation(Booking $booking): void
-    {
-        if (! $booking->affiliate_id || (string) $booking->status !== 'cancelled') {
-            return;
-        }
-
-        $affiliate = Affiliate::find($booking->affiliate_id);
-        if (! $affiliate) {
-            return;
-        }
-
-        $settlement = AffiliateBookingSettlement::firstOrNew([
-            'booking_id' => $booking->id,
-        ]);
-
-        $settlement->affiliate_id = $affiliate->id;
-        $settlement->gross_amount = 0;
-        $settlement->affiliate_percent = (float) ($affiliate->affiliate_payout_percent ?? 0);
-        $settlement->platform_percent = (float) ($affiliate->platform_commission_percent ?? 0);
-        $settlement->affiliate_amount = 0;
-        $settlement->platform_amount = 0;
-        $settlement->currency = strtolower((string) ($affiliate->payout_currency ?: 'usd'));
-        $settlement->status = 'pending';
-        $settlement->status_reason = 'booking_cancelled';
-        $settlement->accepted_at = $settlement->accepted_at ?: now();
-        $settlement->save();
-    }
-
-    private function buildCancellationPriceCalculation(float $cancellationFee, string $serviceType): array
-    {
-        return [
-            'service_type' => $serviceType,
-            'rate' => 0,
-            'units' => 0,
-            'base_price' => 0,
-            'distance_km' => 0,
-            'hours' => 0,
-            'extras_price' => 0,
-            'tax_rate' => 0,
-            'rate_buffer' => 0,
-            'gratuity_percentage' => 0,
-            'surge_rate' => 0,
-            'cancellation_fee' => $cancellationFee,
-            'subtotal' => 0,
-            'surge_rate_amount' => 0,
-            'taxes_amount' => 0,
-            'gratuity_amount' => 0,
-            'parking' => 0,
-            'others' => 0,
-            'airport_fees' => 0,
-            'congestion_charge' => 0,
-            'buffer_amount' => 0,
-            'total_price' => $cancellationFee,
-        ];
-    }
-
-    private function captureCancellationPayment(Booking $booking): ?array
-    {
-        $latestPayment = BookingPayment::where('booking_id', $booking->id)
-            ->latest()
-            ->first();
-
-        if (! $latestPayment) {
-            return [
-                'status' => 'skipped',
-                'message' => 'No payment authorization found for cancellation capture.',
-            ];
-        }
-
-        if ($latestPayment->status !== 'requires_capture') {
-            return [
-                'status' => 'skipped',
-                'message' => 'Latest payment is not capturable.',
-                'payment_status' => $latestPayment->status,
-            ];
-        }
-
-        $finalAmount = (float) ($booking->final_price ?? 0);
-        if ($finalAmount <= 0) {
-            return [
-                'status' => 'skipped',
-                'message' => 'Cancellation fee is 0, capture was not attempted.',
-            ];
-        }
-
-        if ($finalAmount > (float) $latestPayment->authorized_amount) {
-            return [
-                'status' => 'failed',
-                'message' => 'Cancellation fee exceeds authorized amount.',
-            ];
-        }
-
-        try {
-            Stripe::setApiKey((string) config('services.stripe.secret_key'));
-            $intent = PaymentIntent::retrieve($latestPayment->payment_intent_id);
-            $capturedIntent = $intent->capture([
-                'amount_to_capture' => (int) round($finalAmount * 100),
-            ]);
-
-            $latestPayment->captured_amount = $finalAmount;
-            $latestPayment->amount_to_capture = $finalAmount;
-            $latestPayment->status = $capturedIntent->status;
-            $latestPayment->raw_payload = $capturedIntent->toArray();
-            $latestPayment->save();
-
-            $booking->payment_status = $capturedIntent->status === 'succeeded' ? 'paid' : $capturedIntent->status;
-            $booking->save();
-
-            return [
-                'status' => 'captured',
-                'captured_amount' => $finalAmount,
-                'payment_status' => $latestPayment->status,
-            ];
-        } catch (ApiErrorException $e) {
-            $latestPayment->failure_message = $e->getMessage();
-            $latestPayment->status = 'failed';
-            $latestPayment->save();
-
-            $booking->payment_status = 'failed';
-            $booking->save();
-
-            return [
-                'status' => 'failed',
-                'message' => $e->getMessage(),
-            ];
-        }
-    }
 }

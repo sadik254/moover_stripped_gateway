@@ -17,11 +17,6 @@ class Affiliate extends Model
         'phone',
         'status',
         'address',
-        'payout_mode',
-        'affiliate_payout_percent',
-        'platform_commission_percent',
-        'stripe_connect_account_id',
-        'payout_currency',
     ];
 
     public function company()
@@ -37,16 +32,6 @@ class Affiliate extends Model
     public function bookings()
     {
         return $this->hasMany(Booking::class);
-    }
-
-    public function settlements()
-    {
-        return $this->hasMany(AffiliateBookingSettlement::class);
-    }
-
-    public function disbursements()
-    {
-        return $this->hasMany(AffiliateDisbursement::class);
     }
 
     public function drivers()

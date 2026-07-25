@@ -51,9 +51,4 @@ class Customer extends Authenticatable
     {
         return $this->hasMany(Booking::class);
     }
-
-    public function payments()
-    {
-        return $this->hasMany(BookingPayment::class);
-    }
 }
