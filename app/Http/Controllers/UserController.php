@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\DispatcherCreatedPasswordMail;
 use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
@@ -141,11 +144,27 @@ class UserController extends Controller
         $data['user_type'] = 'dispatcher';
 
         $dispatcher = User::create($data);
+        $this->sendDispatcherCredentialsEmail($dispatcher, $generatedPassword);
 
         return response()->json([
-            'message' => 'Dispatcher created successfully',
+            'message' => 'Dispatcher created successfully and credentials sent by email.',
             'data' => $dispatcher,
-            'generated_password' => $generatedPassword
         ], 201);
+    }
+
+    private function sendDispatcherCredentialsEmail(User $dispatcher, string $generatedPassword): void
+    {
+        try {
+            Mail::to($dispatcher->email)->send(new DispatcherCreatedPasswordMail(
+                dispatcher: $dispatcher,
+                generatedPassword: $generatedPassword
+            ));
+        } catch (\Throwable $e) {
+            Log::warning('Dispatcher credentials mail failed', [
+                'dispatcher_id' => $dispatcher->id,
+                'email' => $dispatcher->email,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }
