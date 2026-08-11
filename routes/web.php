@@ -3,11 +3,23 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
+use App\Models\Company;
 
 Route::get('/', function () {
-    // return view('welcome');
-    return response()->json(['message' => 'Welcome to the Taxi Booking API']);
+    return redirect()->route('admin.login');
 });
+
+Route::get('/admin/login', function () {
+    return view('admin.login', [
+        'company' => Company::query()->first(['name', 'logo']),
+    ]);
+})->name('admin.login');
+
+Route::get('/admin/dashboard', function () {
+    return view('admin.dashboard', [
+        'company' => Company::query()->first(['name', 'logo']),
+    ]);
+})->name('admin.dashboard');
 
 Route::get('/maintenance/clear', function (Request $request) {
     // $expectedKey = (string) env('MAINTENANCE_KEY', '');

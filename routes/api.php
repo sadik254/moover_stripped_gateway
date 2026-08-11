@@ -51,7 +51,7 @@ Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('/vehicl
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->delete('/vehicle-classes/{id}', [VehicleClassController::class, 'destroy']);
 
 // Authenticated Vehicle Routes
-Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('/vehicles', [VehicleController::class, 'index']);
+Route::get('/vehicles', [VehicleController::class, 'index']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('/vehicles', [VehicleController::class, 'store']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('/vehicles/{id}', [VehicleController::class, 'show']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('/vehicles/update/{id}', [VehicleController::class, 'update']);
