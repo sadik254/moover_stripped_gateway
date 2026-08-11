@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\BookingCreatedMail;
 use App\Models\Booking;
 use App\Models\BookingActivity;
 use App\Models\Company;
@@ -12,11 +13,15 @@ use App\Models\Vehicle;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
 class BookingController extends Controller
 {
+    private const BOOKING_NOTIFICATION_EMAIL = 'info@squarelimo.com';
+
     public function index(Request $request)
     {
         $user = $request->user();
@@ -708,7 +713,7 @@ class BookingController extends Controller
                 return Booking::create($data);
             });
 
-            $freshBooking = $booking->fresh();
+            $freshBooking = $booking->fresh(['company', 'customer', 'vehicle', 'driver']);
 
             $this->logBookingActivity(
                 request: $request,
@@ -725,6 +730,8 @@ class BookingController extends Controller
                 ]
             );
 
+            $this->sendBookingCreatedEmails($freshBooking);
+
             return response()->json([
                 'message' => 'Booking created successfully',
                 'data' => $freshBooking,
@@ -735,6 +742,38 @@ class BookingController extends Controller
                 'message' => 'Failed to create booking',
                 'error' => $e->getMessage()
             ], 500);
+        }
+    }
+
+    private function sendBookingCreatedEmails(Booking $booking): void
+    {
+        if ($booking->email) {
+            try {
+                Mail::to($booking->email)->send(new BookingCreatedMail($booking));
+            } catch (\Throwable $e) {
+                Log::warning('Booking customer confirmation email failed', [
+                    'booking_id' => $booking->id,
+                    'email' => $booking->email,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        } else {
+            Log::warning('Booking customer confirmation email skipped because no contact email is available', [
+                'booking_id' => $booking->id,
+            ]);
+        }
+
+        try {
+            Mail::to(self::BOOKING_NOTIFICATION_EMAIL)->send(new BookingCreatedMail(
+                booking: $booking,
+                isAdminCopy: true
+            ));
+        } catch (\Throwable $e) {
+            Log::warning('Booking internal notification email failed', [
+                'booking_id' => $booking->id,
+                'email' => self::BOOKING_NOTIFICATION_EMAIL,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 

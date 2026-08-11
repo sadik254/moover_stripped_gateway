@@ -2,11 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Mail\BookingCreatedMail;
 use App\Models\Company;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleClass;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 class BookingWithoutPricingTest extends TestCase
@@ -15,6 +17,8 @@ class BookingWithoutPricingTest extends TestCase
 
     public function test_booking_create_does_not_require_pricing_or_payment_payload(): void
     {
+        Mail::fake();
+
         $user = User::create([
             'name' => 'Owner',
             'email' => 'owner@example.com',
@@ -49,6 +53,8 @@ class BookingWithoutPricingTest extends TestCase
         ]);
 
         $response = $this->postJson('/api/bookings', [
+            'name' => 'Booking Contact',
+            'email' => 'booking.contact@example.com',
             'service_type' => 'point_to_point',
             'pickup_address' => '123 Pickup St',
             'pickup_time' => now()->addHour()->toISOString(),
@@ -62,5 +68,12 @@ class BookingWithoutPricingTest extends TestCase
         $response->assertJsonMissingPath('data.final_price');
         $response->assertJsonMissingPath('data.payment_status');
         $response->assertJsonMissingPath('data.distance_km');
+        Mail::assertSent(BookingCreatedMail::class, 2);
+        Mail::assertSent(BookingCreatedMail::class, fn (BookingCreatedMail $mail): bool =>
+            $mail->hasTo('booking.contact@example.com') && ! $mail->isAdminCopy
+        );
+        Mail::assertSent(BookingCreatedMail::class, fn (BookingCreatedMail $mail): bool =>
+            $mail->hasTo('info@squarelimo.com') && $mail->isAdminCopy
+        );
     }
 }
