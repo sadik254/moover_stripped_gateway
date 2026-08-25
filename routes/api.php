@@ -8,6 +8,7 @@ use App\Http\Controllers\AffiliateDriverController;
 use App\Http\Controllers\FormsubmissionController;
 use App\Http\Controllers\FormtemplateController;
 use App\Http\Controllers\BookingController;
+use App\Http\Controllers\QuickReceiptController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DriverController;
 use App\Http\Controllers\VehicleController;
@@ -98,6 +99,7 @@ Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->delete('custo
 
 // Booking routes
 Route::post('bookings', [BookingController::class, 'store']); // public booking request
+Route::middleware('throttle:6,1')->post('bookings/quick-receipt', [QuickReceiptController::class, 'download']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('bookings', [BookingController::class, 'index']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('bookings/export/csv', [BookingController::class, 'exportCsv']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('bookings/dashboard-summary', [BookingController::class, 'dashboardSummary']);
