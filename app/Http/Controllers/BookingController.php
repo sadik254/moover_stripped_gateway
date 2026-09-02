@@ -20,7 +20,10 @@ use Illuminate\Validation\Rule;
 
 class BookingController extends Controller
 {
-    private const BOOKING_NOTIFICATION_EMAIL = 'info@squarelimo.com';
+    private const BOOKING_NOTIFICATION_EMAILS = [
+        'info@squarelimo.com',
+        'reservations@squarelimo.com',
+    ];
 
     public function index(Request $request)
     {
@@ -764,14 +767,14 @@ class BookingController extends Controller
         }
 
         try {
-            Mail::to(self::BOOKING_NOTIFICATION_EMAIL)->send(new BookingCreatedMail(
+            Mail::to(self::BOOKING_NOTIFICATION_EMAILS)->send(new BookingCreatedMail(
                 booking: $booking,
                 isAdminCopy: true
             ));
         } catch (\Throwable $e) {
             Log::warning('Booking internal notification email failed', [
                 'booking_id' => $booking->id,
-                'email' => self::BOOKING_NOTIFICATION_EMAIL,
+                'emails' => self::BOOKING_NOTIFICATION_EMAILS,
                 'error' => $e->getMessage(),
             ]);
         }
