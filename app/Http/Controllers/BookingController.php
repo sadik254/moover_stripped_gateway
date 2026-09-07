@@ -20,10 +20,11 @@ use Illuminate\Validation\Rule;
 
 class BookingController extends Controller
 {
-    private const BOOKING_NOTIFICATION_EMAILS = [
-        'info@squarelimo.com',
-        'reservations@squarelimo.com',
-    ];
+    private const BOOKING_NOTIFICATION_EMAILS = 'reservations@squarelimo.com';
+    // private const BOOKING_NOTIFICATION_EMAILS = [
+    //     'info@squarelimo.com',
+    //     'reservations@squarelimo.com',
+    // ];
 
     public function index(Request $request)
     {
