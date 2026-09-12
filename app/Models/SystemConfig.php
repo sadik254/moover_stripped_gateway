@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Company;
 
 class SystemConfig extends Model
 {
@@ -12,6 +11,14 @@ class SystemConfig extends Model
 
     protected $fillable = [
         'company_id',
+        'tax_rate',
+        'base_price_flat',
+        'cancellation_fee',
+        'surge_rate',
+        'wait_time_rate',
+        'rate_buffer',
+        'gratuity_percentage',
+        'currency',
         'service_zones',
         'platform_name',
         'primary_brand_color',

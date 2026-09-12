@@ -11,11 +11,11 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
-class BookingWithoutPricingTest extends TestCase
+class BookingPaymentAndNotificationsTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_booking_create_does_not_require_pricing_or_payment_payload(): void
+    public function test_booking_create_restores_pricing_and_keeps_notification_emails(): void
     {
         Mail::fake();
 
@@ -52,28 +52,31 @@ class BookingWithoutPricingTest extends TestCase
             'status' => 'available',
         ]);
 
-        $response = $this->postJson('/api/bookings', [
+        $payload = [
             'name' => 'Booking Contact',
             'email' => 'booking.contact@example.com',
             'service_type' => 'point_to_point',
             'pickup_address' => '123 Pickup St',
             'pickup_time' => now()->addHour()->toISOString(),
             'passengers' => 3,
-        ]);
+            'distance_km' => 10,
+        ];
+
+        $quote = $this->postJson('/api/bookings', $payload);
+        $quote->assertOk();
+        $quote->assertJsonPath('data.service_type', 'point_to_point');
+        $quote->assertJsonPath('data.vehicle_options.0.vehicle_id', 1);
+
+        $response = $this->postJson('/api/bookings', $payload + ['vehicle_id' => 1]);
 
         $response->assertCreated();
         $response->assertJsonPath('data.service_type', 'point_to_point');
-        $response->assertJsonMissingPath('calculation');
-        $response->assertJsonMissingPath('data.total_price');
-        $response->assertJsonMissingPath('data.final_price');
-        $response->assertJsonMissingPath('data.payment_status');
-        $response->assertJsonMissingPath('data.distance_km');
+        $response->assertJsonPath('data.distance_km', 10);
+        $response->assertJsonStructure(['calculation' => ['total_price']]);
         Mail::assertSent(BookingCreatedMail::class, 2);
-        Mail::assertSent(BookingCreatedMail::class, fn (BookingCreatedMail $mail): bool =>
-            $mail->hasTo('booking.contact@example.com') && ! $mail->isAdminCopy
+        Mail::assertSent(BookingCreatedMail::class, fn (BookingCreatedMail $mail): bool => $mail->hasTo('booking.contact@example.com') && ! $mail->isAdminCopy
         );
-        Mail::assertSent(BookingCreatedMail::class, fn (BookingCreatedMail $mail): bool =>
-            $mail->hasTo('info@squarelimo.com') && $mail->isAdminCopy
+        Mail::assertSent(BookingCreatedMail::class, fn (BookingCreatedMail $mail): bool => $mail->hasTo('reservations@squarelimo.com') && $mail->isAdminCopy
         );
     }
 }

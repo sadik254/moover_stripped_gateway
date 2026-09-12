@@ -14,7 +14,9 @@ use App\Http\Controllers\DriverController;
 use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\SystemConfigController;
+use App\Http\Controllers\BookingPaymentController;
 use App\Http\Controllers\BookingLiveLocationController;
+use App\Http\Controllers\AffiliateSettlementController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Broadcasting\BroadcastController;
@@ -119,6 +121,18 @@ Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('booking
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('bookings/{id}/cancel', [BookingController::class, 'cancelBooking']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->delete('bookings/{id}', [BookingController::class, 'destroy']);
 
+// Affiliate settlement routes (admin/dispatcher)
+Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('affiliate-settlements', [AffiliateSettlementController::class, 'index']);
+Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('affiliate-settlements/{id}', [AffiliateSettlementController::class, 'show']);
+Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('affiliate-settlements/{id}/disburse', [AffiliateSettlementController::class, 'disburse']);
+Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('affiliate-disbursements', [AffiliateSettlementController::class, 'disbursements']);
+
+// Booking payment routes
+Route::post('payments/webhook/stripe', [BookingPaymentController::class, 'webhook']);
+Route::middleware(['auth:sanctum'])->get('bookings/{id}/payment', [BookingPaymentController::class, 'show']);
+Route::post('bookings/{id}/payment/authorize', [BookingPaymentController::class, 'authorizePayment']);
+Route::middleware(['auth:sanctum'])->post('bookings/{id}/payment/capture', [BookingPaymentController::class, 'capturePayment']);
+
 // Broadcast auth for Sanctum tokens (private channels from SPA/dashboard)
 Route::middleware(['auth:sanctum'])->post('broadcasting/auth', [BroadcastController::class, 'authenticate']);
 
@@ -151,5 +165,7 @@ Route::middleware(['auth:sanctum', 'abilities:affiliate'])->post('affiliate/driv
 Route::middleware(['auth:sanctum', 'abilities:affiliate'])->get('affiliate/drivers/{id}', [AffiliateDriverController::class, 'show']);
 Route::middleware(['auth:sanctum', 'abilities:affiliate'])->post('affiliate/drivers/{id}/update', [AffiliateDriverController::class, 'update']);
 Route::middleware(['auth:sanctum', 'abilities:affiliate'])->delete('affiliate/drivers/{id}', [AffiliateDriverController::class, 'destroy']);
+Route::middleware(['auth:sanctum', 'abilities:affiliate'])->get('affiliate/settlements', [AffiliateSettlementController::class, 'mySettlements']);
+Route::middleware(['auth:sanctum', 'abilities:affiliate'])->get('affiliate/disbursements', [AffiliateSettlementController::class, 'myDisbursements']);
 
 // Route::apiResource('affiliateclicks', AffiliateclickController::class);

@@ -10,11 +10,11 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
-class NonFinancialWorkflowTest extends TestCase
+class FinancialWorkflowTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_system_config_only_persists_branding_fields(): void
+    public function test_system_config_persists_financial_and_branding_fields(): void
     {
         $admin = User::create([
             'name' => 'Admin',
@@ -44,11 +44,11 @@ class NonFinancialWorkflowTest extends TestCase
 
         $response->assertCreated();
         $response->assertJsonPath('data.platform_name', 'Client Brand');
-        $response->assertJsonMissingPath('data.tax_rate');
-        $response->assertJsonMissingPath('data.currency');
+        $response->assertJsonPath('data.tax_rate', 15);
+        $response->assertJsonPath('data.currency', 'usd');
     }
 
-    public function test_affiliate_booking_acceptance_stays_operational_only(): void
+    public function test_affiliate_booking_acceptance_creates_a_financial_settlement(): void
     {
         $admin = User::create([
             'name' => 'Admin',
@@ -80,6 +80,9 @@ class NonFinancialWorkflowTest extends TestCase
             'phone' => '1234567890',
             'status' => 'active',
             'address' => 'Main Street',
+            'affiliate_payout_percent' => 80,
+            'platform_commission_percent' => 20,
+            'payout_currency' => 'usd',
         ]);
 
         $booking = Booking::create([
@@ -89,6 +92,7 @@ class NonFinancialWorkflowTest extends TestCase
             'pickup_address' => 'Pickup Point',
             'pickup_time' => now()->addHour(),
             'passengers' => 2,
+            'final_price' => 100,
             'status' => 'pending',
         ]);
 
@@ -101,6 +105,15 @@ class NonFinancialWorkflowTest extends TestCase
         $this->assertDatabaseHas('bookings', [
             'id' => $booking->id,
             'affiliate_status' => 'accepted',
+        ]);
+        $this->assertDatabaseHas('affiliate_booking_settlements', [
+            'booking_id' => $booking->id,
+            'affiliate_id' => $affiliate->id,
+            'gross_amount' => 100,
+            'affiliate_amount' => 80,
+            'platform_amount' => 20,
+            'currency' => 'usd',
+            'status' => 'pending',
         ]);
     }
 }

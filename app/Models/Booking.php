@@ -4,13 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Company;
-use App\Models\Customer;
-use App\Models\Driver;
-use App\Models\Affiliate;
-use App\Models\AffiliateDriver;
-use App\Models\Vehicle;
-use App\Models\BookingActivity;
 
 class Booking extends Model
 {
@@ -37,7 +30,27 @@ class Booking extends Model
         'bags',
         'flight_number',
         'airlines',
+        'distance_km',
         'hours',
+        'base_price',
+        'extras_price',
+        'total_price',
+        'final_price',
+        'taxes',
+        'gratuity',
+        'parking',
+        'others',
+        'airport_fees',
+        'congestion_charge',
+        'taxes_amount',
+        'gratuity_amount',
+        'rate_buffer',
+        'rate_buffer_amount',
+        'cancellation_fee',
+        'surge_rate',
+        'surge_rate_amount',
+        'payment_method',
+        'payment_status',
         'status',
         'affiliate_status',
         'affiliate_reference',
@@ -79,8 +92,23 @@ class Booking extends Model
         return $this->belongsTo(AffiliateDriver::class, 'assigned_affiliate_driver_id');
     }
 
+    public function payments()
+    {
+        return $this->hasMany(BookingPayment::class);
+    }
+
+    public function latestPayment()
+    {
+        return $this->hasOne(BookingPayment::class)->latestOfMany();
+    }
+
     public function activities()
     {
         return $this->hasMany(BookingActivity::class);
+    }
+
+    public function settlement()
+    {
+        return $this->hasOne(AffiliateBookingSettlement::class);
     }
 }
