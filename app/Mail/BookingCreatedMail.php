@@ -15,18 +15,26 @@ class BookingCreatedMail extends Mailable
     use Queueable, SerializesModels;
 
     public Booking $booking;
+
     public bool $isAdminCopy;
+
     public string $platformName;
+
     public ?string $companyEmail;
+
     public ?string $companyPhone;
+
     public ?string $companyAddress;
+
     public ?string $companyLogo;
+
     public string $pickupTime;
+
     public string $serviceType;
 
     public function __construct(Booking $booking, bool $isAdminCopy = false)
     {
-        $booking->loadMissing(['company', 'customer', 'vehicle', 'driver']);
+        $booking->loadMissing(['company', 'customer', 'vehicleClass', 'driver']);
         $company = $booking->company ?? Company::first();
 
         $this->booking = $booking;

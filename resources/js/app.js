@@ -80,20 +80,14 @@ const renderFeed = (bookings) => {
     body.innerHTML = bookings.map((booking) => {
         const status = String(booking.status || 'pending');
         const statusClass = ['pending', 'cancelled'].includes(status) ? ` status-pill--${status}` : '';
-        return `<tr><td><strong>#${escapeHtml(booking.id)}</strong><small>${escapeHtml(booking.service_type?.replaceAll('_', ' ') || 'Booking')}</small></td><td><strong>${escapeHtml(booking.customer?.name || booking.name || 'Unassigned')}</strong><small>${escapeHtml(booking.customer?.phone || booking.phone || '')}</small></td><td><strong>${escapeHtml(booking.pickup_address || 'Pickup to be confirmed')}</strong><span class="status-pill${statusClass}">${escapeHtml(status.replaceAll('_', ' '))}</span></td><td><strong>${escapeHtml(booking.driver?.name || 'Not assigned')}</strong><small>${escapeHtml(booking.vehicle?.name || 'Vehicle pending')}</small></td><td><strong>${escapeHtml(booking.pickup_time ? new Date(booking.pickup_time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'TBD')}</strong><small>${escapeHtml(booking.pickup_time ? new Date(booking.pickup_time).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '')}</small></td></tr>`;
+        return `<tr><td><strong>#${escapeHtml(booking.id)}</strong><small>${escapeHtml(booking.service_type?.replaceAll('_', ' ') || 'Booking')}</small></td><td><strong>${escapeHtml(booking.customer?.name || booking.name || 'Unassigned')}</strong><small>${escapeHtml(booking.customer?.phone || booking.phone || '')}</small></td><td><strong>${escapeHtml(booking.pickup_address || 'Pickup to be confirmed')}</strong><span class="status-pill${statusClass}">${escapeHtml(status.replaceAll('_', ' '))}</span></td><td><strong>${escapeHtml(booking.driver?.name || 'Not assigned')}</strong><small>${escapeHtml(booking.vehicle_class?.name || 'Class pending')}</small></td><td><strong>${escapeHtml(booking.pickup_time ? new Date(booking.pickup_time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'TBD')}</strong><small>${escapeHtml(booking.pickup_time ? new Date(booking.pickup_time).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '')}</small></td></tr>`;
     }).join('');
 };
 
-const renderAvailability = (availability) => {
+const renderVehicleClasses = (vehicleClasses) => {
     const element = document.getElementById('availability-list');
     if (!element) return;
-    const groups = (availability?.vehicles || []).reduce((carry, vehicle) => {
-        const name = vehicle.vehicle_class?.name || vehicle.category || 'Unclassified';
-        carry[name] = (carry[name] || 0) + 1;
-        return carry;
-    }, {});
-    const entries = Object.entries(groups);
-    element.innerHTML = entries.length ? entries.slice(0, 4).map(([name, count]) => `<div class="availability-row"><div><strong>${escapeHtml(name)}</strong><small>Available in the current dispatch window</small></div><span class="availability-count">${count}</span></div>`).join('') : '<p class="empty-state">No available vehicles in the current window.</p>';
+    element.innerHTML = vehicleClasses.length ? vehicleClasses.slice(0, 4).map((vehicleClass) => `<div class="availability-row"><div><strong>${escapeHtml(vehicleClass.name)}</strong><small>${escapeHtml(vehicleClass.capacity ?? 0)} passengers · ${escapeHtml(vehicleClass.luggage ?? 0)} bags</small></div><span class="availability-count">${escapeHtml(vehicleClass.capacity ?? 0)}</span></div>`).join('') : '<p class="empty-state">No vehicle classes configured.</p>';
 };
 
 const renderActivity = (activities) => {
@@ -130,11 +124,11 @@ const bootDashboard = async () => {
             request(`${page.dataset.apiBase}/drivers/dashboard-summary`, token),
             request(`${page.dataset.apiBase}/customers/dashboard-summary`, token),
             request(`${page.dataset.apiBase}/bookings/live-operations-feed`, token),
-            request(`${page.dataset.apiBase}/bookings/vehicle-availability`, token),
+            request(`${page.dataset.apiBase}/vehicle-classes`, token),
             request(`${page.dataset.apiBase}/bookings/recent-activity`, token),
         ]);
         const data = results.map((result) => result.status === 'fulfilled' ? result.value.data : null);
-        const [bookingSummary, driverSummary, customerSummary, feed, availability, activity] = data;
+        const [bookingSummary, driverSummary, customerSummary, feed, vehicleClasses, activity] = data;
         const counts = bookingSummary?.today_counts || {};
         const bookingCount = Number(counts.pending || 0) + Number(counts.confirmed || 0) + Number(counts.in_progress || 0);
         setText('metric-bookings', bookingCount);
@@ -145,7 +139,7 @@ const bootDashboard = async () => {
         setText('metric-customers', customerSummary?.total_customers ?? 0);
         setText('overview-note', `${bookingSummary?.total_trips_lifetime ?? 0} confirmed trips in your operation`);
         renderFeed(Array.isArray(feed) ? feed : []);
-        renderAvailability(availability);
+        renderVehicleClasses(Array.isArray(vehicleClasses) ? vehicleClasses : []);
         renderActivity(activity?.data || []);
         if (results.some((result) => result.status === 'rejected')) showAlert('dashboard-error', 'Some dashboard information could not be loaded. You can still continue working.');
     } catch (errorResponse) {

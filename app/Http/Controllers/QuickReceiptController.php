@@ -16,7 +16,7 @@ class QuickReceiptController extends Controller
             'trip_date' => ['required', 'date_format:Y-m-d'],
         ]);
 
-        $booking = Booking::with(['company', 'customer', 'vehicle', 'driver'])
+        $booking = Booking::with(['company', 'customer', 'vehicleClass', 'driver'])
             ->whereKey($validated['booking_id'])
             ->whereDate('pickup_time', $validated['trip_date'])
             ->where(function ($query) use ($validated): void {

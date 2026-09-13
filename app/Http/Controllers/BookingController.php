@@ -14,7 +14,7 @@ use App\Models\Customer;
 use App\Models\Driver;
 use App\Models\SystemConfig;
 use App\Models\User;
-use App\Models\Vehicle;
+use App\Models\VehicleClass;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -57,7 +57,7 @@ class BookingController extends Controller
             ], 422);
         }
 
-        $query = Booking::with('driver:id,name')
+        $query = Booking::with(['driver:id,name', 'vehicleClass:id,name,capacity,luggage,image'])
             ->where('company_id', $company->id);
 
         if ($request->filled('status')) {
@@ -98,7 +98,8 @@ class BookingController extends Controller
             ], 422);
         }
 
-        $query = Booking::where('company_id', $company->id)
+        $query = Booking::with('vehicleClass:id,name,capacity,luggage,image')
+            ->where('company_id', $company->id)
             ->where('customer_id', $authUser->id);
 
         if ($request->filled('status')) {
@@ -142,7 +143,7 @@ class BookingController extends Controller
         $query = Booking::with([
             'customer:id,name,email,phone',
             'driver:id,name',
-            'vehicle:id,name',
+            'vehicleClass:id,name',
         ])
             ->where('company_id', $company->id)
             ->whereDate('pickup_time', '>=', $request->date_from)
@@ -178,8 +179,8 @@ class BookingController extends Controller
                 'customer_phone',
                 'driver_id',
                 'driver_name',
-                'vehicle_id',
-                'vehicle_name',
+                'vehicle_class_id',
+                'vehicle_class_name',
                 'distance_km',
                 'hours',
                 'total_price',
@@ -205,8 +206,8 @@ class BookingController extends Controller
                     $booking->customer?->phone,
                     $booking->driver_id,
                     $booking->driver?->name,
-                    $booking->vehicle_id,
-                    $booking->vehicle?->name,
+                    $booking->vehicle_class_id,
+                    $booking->vehicleClass?->name,
                     $booking->distance_km,
                     $booking->hours,
                     $booking->total_price,
@@ -369,7 +370,7 @@ class BookingController extends Controller
         }
 
         $dailyRevenue = $this->buildDailyRevenueSeries($company->id, $completedStatuses, $hasCustomRange ? $end : now());
-        $vehicleUtilization = $this->buildVehicleUtilization($company->id, $start, $end, $completedStatuses);
+        $vehicleClassUtilization = $this->buildVehicleClassUtilization($company->id, $start, $end, $completedStatuses);
         $topDrivers = $this->buildTopDrivers($company->id, $start, $end, $completedStatuses);
 
         return response()->json([
@@ -384,7 +385,7 @@ class BookingController extends Controller
                 'net_profit' => $netProfit,
                 'comparison_vs_last_month' => $comparison,
                 'last_7_days_revenue' => $dailyRevenue,
-                'vehicle_utilization' => $vehicleUtilization,
+                'vehicle_class_utilization' => $vehicleClassUtilization,
                 'top_drivers' => $topDrivers,
             ],
         ]);
@@ -520,7 +521,7 @@ class BookingController extends Controller
         $bookings = Booking::with([
             'customer:id,name,email,phone',
             'driver:id,name,phone',
-            'vehicle:id,name,image',
+            'vehicleClass:id,name,image',
         ])
             ->where('company_id', $company->id)
             ->where('status', 'on_route')
@@ -604,7 +605,7 @@ class BookingController extends Controller
         $feed = Booking::with([
             'customer:id,name,email,phone',
             'driver:id,name,phone',
-            'vehicle:id,name,capacity,image',
+            'vehicleClass:id,name,capacity,luggage,image',
         ])
             ->where('company_id', $company->id)
             ->whereIn('status', ['pending', 'assigned', 'on_route', 'in_progress'])
@@ -615,39 +616,6 @@ class BookingController extends Controller
 
         return response()->json([
             'data' => $feed,
-        ]);
-    }
-
-    public function vehicleAvailability(Request $request)
-    {
-        $user = $request->user();
-        if (! $user instanceof User) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
-
-        $company = $this->getCompany();
-        if (! $company) {
-            return response()->json(['message' => 'Company not found'], 404);
-        }
-
-        $now = now();
-        $unavailableVehicleIds = $this->getUnavailableVehicleIds($company->id, $now, null);
-
-        $availableVehicles = Vehicle::with('vehicleClass:id,name')
-            ->whereNotIn('id', $unavailableVehicleIds)
-            ->orderBy('name')
-            ->get();
-
-        return response()->json([
-            'data' => [
-                'window' => [
-                    'center_time' => $now->toDateTimeString(),
-                    'from' => $now->copy()->subHours(2)->toDateTimeString(),
-                    'to' => $now->copy()->addHours(2)->toDateTimeString(),
-                ],
-                'count' => $availableVehicles->count(),
-                'vehicles' => $availableVehicles,
-            ],
         ]);
     }
 
@@ -664,7 +632,7 @@ class BookingController extends Controller
             'name' => 'nullable|string|max:255',
             'email' => 'nullable|email|max:255',
             'phone' => 'nullable|string|max:50',
-            'vehicle_id' => ['nullable', Rule::exists('vehicles', 'id')],
+            'vehicle_class_id' => ['nullable', Rule::exists('vehicle_classes', 'id')->where('company_id', $company->id)],
             'driver_id' => ['nullable', Rule::exists('drivers', 'id')],
             'service_type' => ['required', Rule::in(['point_to_point', 'hourly', 'airport', 'custom'])],
             'pickup_address' => 'required|string',
@@ -728,79 +696,76 @@ class BookingController extends Controller
             }
         }
 
-        $pickup = Carbon::parse($request->pickup_time);
-        $dropoff = $request->filled('dropoff_time') ? Carbon::parse($request->dropoff_time) : null;
-
-        $unavailableVehicleIds = $this->getUnavailableVehicleIds($company->id, $pickup, $dropoff);
-
-        $vehicles = Vehicle::with('vehicleClass:id,name')
-            ->whereNotIn('id', $unavailableVehicleIds)
-            ->get();
-
         $passengers = (int) $request->passengers;
-        $minCap = $passengers + 2;
-        $maxCap = $passengers + 4;
+        $bags = (int) ($request->bags ?? 0);
 
         $systemConfig = $this->getSystemConfig($company->id);
 
-        $vehicleOptions = $vehicles->map(function ($vehicle) use ($request, $minCap, $maxCap, $systemConfig) {
-            $priceCalculation = $this->calculatePrice($vehicle, $this->buildPriceInput($request, $systemConfig));
+        $vehicleClassOptions = VehicleClass::where('company_id', $company->id)
+            ->orderBy('name')
+            ->get()
+            ->map(function (VehicleClass $vehicleClass) use ($request, $passengers, $bags, $systemConfig) {
+                $priceCalculation = $this->calculatePrice($vehicleClass, $this->buildPriceInput($request, $systemConfig));
+                $fitsPassengers = (int) $vehicleClass->capacity >= $passengers;
+                $fitsLuggage = (int) $vehicleClass->luggage >= $bags;
 
-            $capacity = (int) ($vehicle->capacity ?? 0);
-            $recommended = $capacity >= $minCap && $capacity <= $maxCap;
+                return [
+                    'vehicle_class_id' => $vehicleClass->id,
+                    'name' => $vehicleClass->name,
+                    'description' => $vehicleClass->description,
+                    'image' => $vehicleClass->image,
+                    'capacity' => $vehicleClass->capacity,
+                    'luggage' => $vehicleClass->luggage,
+                    'rate' => $priceCalculation['rate'],
+                    'base_price' => $priceCalculation['base_price'],
+                    'distance_km' => $priceCalculation['distance_km'],
+                    'hours' => $priceCalculation['hours'],
+                    'total_price' => $priceCalculation['total_price'],
+                    'calculation' => $this->buildCalculationBreakdown($priceCalculation),
+                    'fits_passengers' => $fitsPassengers,
+                    'fits_luggage' => $fitsLuggage,
+                    'recommended' => $fitsPassengers && $fitsLuggage,
+                ];
+            })->values();
 
-            return [
-                'vehicle_id' => $vehicle->id,
-                'name' => $vehicle->name,
-                'class' => $vehicle->vehicleClass?->name,
-                'image' => $vehicle->image,
-                'capacity' => $vehicle->capacity,
-                'rate' => $priceCalculation['rate'],
-                'base_price' => $priceCalculation['base_price'],
-                'distance_km' => $priceCalculation['distance_km'],
-                'hours' => $priceCalculation['hours'],
-                'total_price' => $priceCalculation['total_price'],
-                'calculation' => $this->buildCalculationBreakdown($priceCalculation),
-                'recommended' => $recommended,
-            ];
-        })->values();
-
-        if (! $request->filled('vehicle_id')) {
+        if (! $request->filled('vehicle_class_id')) {
             return response()->json([
                 'data' => [
                     'service_type' => $request->service_type,
                     'passengers' => (int) $request->passengers,
+                    'bags' => $bags,
                     'distance_km' => (float) ($request->distance_km ?? 0),
                     'hours' => (float) ($request->hours ?? 0),
-                    'vehicle_options' => $vehicleOptions,
+                    'vehicle_class_options' => $vehicleClassOptions,
                 ],
             ]);
         }
 
-        if (in_array((int) $request->vehicle_id, $unavailableVehicleIds, true)) {
+        $vehicleClass = VehicleClass::where('company_id', $company->id)
+            ->find($request->vehicle_class_id);
+        if (! $vehicleClass) {
             return response()->json([
-                'message' => 'Selected vehicle is not available for the requested time',
-            ], 409);
-        }
-
-        $vehicle = $vehicles->firstWhere('id', (int) $request->vehicle_id) ?? Vehicle::find($request->vehicle_id);
-        if (! $vehicle) {
-            return response()->json([
-                'message' => 'Vehicle not found',
+                'message' => 'Vehicle class not found',
             ], 404);
         }
 
+        if ((int) $vehicleClass->capacity < $passengers || (int) $vehicleClass->luggage < $bags) {
+            return response()->json([
+                'message' => 'Selected vehicle class cannot accommodate the requested passengers and luggage',
+            ], 422);
+        }
+
         try {
-            $booking = DB::transaction(function () use ($request, $company, $vehicle, $authUser) {
+            $booking = DB::transaction(function () use ($request, $company, $vehicleClass, $authUser) {
                 $systemConfig = $this->getSystemConfig($company->id);
-                $priceCalculation = $this->calculatePrice($vehicle, $this->buildPriceInput($request, $systemConfig));
+                $priceCalculation = $this->calculatePrice($vehicleClass, $this->buildPriceInput($request, $systemConfig));
 
                 $data = $request->only([
                     'customer_id',
                     'name',
                     'email',
                     'phone',
-                    'vehicle_id',
+                    'vehicle_class_id',
                     'driver_id',
                     'service_type',
                     'pickup_address',
@@ -891,7 +856,7 @@ class BookingController extends Controller
                 newValues: [
                     'status' => $freshBooking->status,
                     'customer_id' => $freshBooking->customer_id,
-                    'vehicle_id' => $freshBooking->vehicle_id,
+                    'vehicle_class_id' => $freshBooking->vehicle_class_id,
                     'driver_id' => $freshBooking->driver_id,
                     'pickup_time' => $freshBooking->pickup_time,
                     'total_price' => $freshBooking->total_price,
@@ -993,7 +958,7 @@ class BookingController extends Controller
         $beforeSnapshot = $booking->only([
             'status',
             'customer_id',
-            'vehicle_id',
+            'vehicle_class_id',
             'driver_id',
             'service_type',
             'pickup_address',
@@ -1025,7 +990,7 @@ class BookingController extends Controller
             'name' => 'sometimes|nullable|string|max:255',
             'email' => 'sometimes|nullable|email|max:255',
             'phone' => 'sometimes|nullable|string|max:50',
-            'vehicle_id' => ['sometimes', Rule::exists('vehicles', 'id')],
+            'vehicle_class_id' => ['sometimes', Rule::exists('vehicle_classes', 'id')->where('company_id', $company->id)],
             'driver_id' => ['sometimes', 'nullable', Rule::exists('drivers', 'id')],
             'service_type' => ['sometimes', Rule::in(['point_to_point', 'hourly', 'airport', 'custom'])],
             'pickup_address' => 'sometimes|required|string',
@@ -1072,34 +1037,24 @@ class BookingController extends Controller
             ], 422);
         }
 
+        $vehicleClassId = $request->input('vehicle_class_id', $booking->vehicle_class_id);
+        $passengers = (int) $request->input('passengers', $booking->passengers);
+        $bags = (int) $request->input('bags', $booking->bags ?? 0);
+        if ($vehicleClassId) {
+            $vehicleClass = VehicleClass::where('company_id', $company->id)->find($vehicleClassId);
+            if (! $vehicleClass || (int) $vehicleClass->capacity < $passengers || (int) $vehicleClass->luggage < $bags) {
+                return response()->json([
+                    'message' => 'Selected vehicle class cannot accommodate the requested passengers and luggage',
+                ], 422);
+            }
+        }
+
         $authUser = $request->user();
         if ($authUser instanceof Customer) {
             if ($request->filled('customer_id') && (int) $request->customer_id !== (int) $authUser->id) {
                 return response()->json([
                     'message' => 'Unauthorized customer_id',
                 ], 403);
-            }
-        }
-
-        // Check vehicle availability if time or vehicle is being changed
-        $isTimeOrVehicleChanged = $request->hasAny(['pickup_time', 'dropoff_time', 'vehicle_id']);
-
-        if ($isTimeOrVehicleChanged) {
-            $newPickupTime = $request->input('pickup_time', $booking->pickup_time);
-            $newDropoffTime = $request->input('dropoff_time', $booking->dropoff_time);
-            $newVehicleId = $request->input('vehicle_id', $booking->vehicle_id);
-
-            if (! empty($newVehicleId)) {
-                $pickup = Carbon::parse($newPickupTime);
-                $dropoff = $newDropoffTime ? Carbon::parse($newDropoffTime) : null;
-
-                $unavailableVehicleIds = $this->getUnavailableVehicleIds($company->id, $pickup, $dropoff, $booking->id);
-
-                if (in_array((int) $newVehicleId, $unavailableVehicleIds, true)) {
-                    return response()->json([
-                        'message' => 'Selected vehicle is not available for the requested time',
-                    ], 409);
-                }
             }
         }
 
@@ -1117,7 +1072,7 @@ class BookingController extends Controller
                         'name',
                         'email',
                         'phone',
-                        'vehicle_id',
+                        'vehicle_class_id',
                         'driver_id',
                         'service_type',
                         'pickup_address',
@@ -1173,7 +1128,7 @@ class BookingController extends Controller
                 }
 
                 $recalc = ! $isCancelled && $request->hasAny([
-                    'vehicle_id',
+                    'vehicle_class_id',
                     'service_type',
                     'distance_km',
                     'hours',
@@ -1186,9 +1141,9 @@ class BookingController extends Controller
                 ]);
 
                 if ($recalc) {
-                    $vehicle = Vehicle::find($booking->vehicle_id);
+                    $vehicleClass = VehicleClass::find($booking->vehicle_class_id);
                     $systemConfig = $this->getSystemConfig($booking->company_id);
-                    $priceCalculation = $this->calculatePrice($vehicle, $this->buildPriceInput($booking, $systemConfig));
+                    $priceCalculation = $this->calculatePrice($vehicleClass, $this->buildPriceInput($booking, $systemConfig));
 
                     $booking->base_price = $priceCalculation['base_price'];
                     $booking->taxes = $priceCalculation['tax_rate'];
@@ -1209,9 +1164,9 @@ class BookingController extends Controller
 
                 // expose latest pricing flow after any update
                 if (! $latestPriceCalculation) {
-                    $vehicle = Vehicle::find($booking->vehicle_id);
+                    $vehicleClass = VehicleClass::find($booking->vehicle_class_id);
                     $systemConfig = $this->getSystemConfig($booking->company_id);
-                    $latestPriceCalculation = $this->calculatePrice($vehicle, $this->buildPriceInput($booking, $systemConfig));
+                    $latestPriceCalculation = $this->calculatePrice($vehicleClass, $this->buildPriceInput($booking, $systemConfig));
                 }
 
                 $booking->setAttribute('price_calculation', $latestPriceCalculation);
@@ -1291,7 +1246,7 @@ class BookingController extends Controller
         $oldValues = $booking->only([
             'status',
             'customer_id',
-            'vehicle_id',
+            'vehicle_class_id',
             'driver_id',
             'pickup_time',
             'dropoff_time',
@@ -1679,38 +1634,6 @@ class BookingController extends Controller
         return SystemConfig::where('company_id', $companyId)->first();
     }
 
-    /**
-     * Get unavailable vehicle IDs for the given time range
-     */
-    private function getUnavailableVehicleIds(int $companyId, Carbon $pickup, ?Carbon $dropoff, ?int $excludeBookingId = null): array
-    {
-        $windowStart = $dropoff ? $pickup : $pickup->copy()->subHours(2);
-        $windowEnd = $dropoff ? $dropoff : $pickup->copy()->addHours(2);
-
-        $query = Booking::where('company_id', $companyId)
-            ->where(function ($query) use ($windowStart, $windowEnd) {
-                $query->where(function ($q) use ($windowStart, $windowEnd) {
-                    $q->whereNotNull('dropoff_time')
-                        ->where('pickup_time', '<=', $windowEnd)
-                        ->where('dropoff_time', '>=', $windowStart);
-                })->orWhere(function ($q) use ($windowStart, $windowEnd) {
-                    $q->whereNull('dropoff_time')
-                        ->whereBetween('pickup_time', [$windowStart, $windowEnd]);
-                });
-            });
-
-        // Exclude the current booking when updating
-        if ($excludeBookingId) {
-            $query->where('id', '!=', $excludeBookingId);
-        }
-
-        return $query->pluck('vehicle_id')
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
-    }
-
     private function getUnavailableDriverIds(int $companyId, Carbon $pickup, ?Carbon $dropoff, ?int $excludeBookingId = null): array
     {
         $windowStart = $dropoff ? $pickup : $pickup->copy()->subHours(2);
@@ -1739,10 +1662,7 @@ class BookingController extends Controller
             ->all();
     }
 
-    /**
-     * Calculate price for a vehicle and booking data
-     */
-    private function calculatePrice(Vehicle $vehicle, array $data): array
+    private function calculatePrice(?VehicleClass $vehicleClass, array $data): array
     {
         $serviceType = $data['service_type'];
         $distanceKm = (float) $data['distance_km'];
@@ -1765,17 +1685,17 @@ class BookingController extends Controller
 
         switch ($serviceType) {
             case 'hourly':
-                $rate = (float) ($vehicle->hourly_rate ?? 0);
+                $rate = (float) ($vehicleClass?->hourly_rate ?? 0);
                 $units = $hours;
                 break;
             case 'airport':
-                $rate = (float) ($vehicle->airport_rate ?? 0);
+                $rate = (float) ($vehicleClass?->airport_rate ?? 0);
                 $units = $distanceKm;
                 break;
             case 'point_to_point':
             case 'custom':
             default:
-                $rate = (float) ($vehicle->per_km_rate ?? 0);
+                $rate = (float) ($vehicleClass?->per_km_rate ?? 0);
                 $units = $distanceKm;
                 break;
         }
@@ -1938,15 +1858,15 @@ class BookingController extends Controller
         return $days;
     }
 
-    private function buildVehicleUtilization(int $companyId, Carbon $start, Carbon $end, array $completedStatuses): array
+    private function buildVehicleClassUtilization(int $companyId, Carbon $start, Carbon $end, array $completedStatuses): array
     {
         $rows = Booking::where('company_id', $companyId)
             ->where('payment_status', 'paid')
             ->whereBetween('pickup_time', [$start, $end])
             ->whereIn('status', $completedStatuses)
-            ->whereNotNull('vehicle_id')
-            ->selectRaw('vehicle_id, COUNT(*) as trips')
-            ->groupBy('vehicle_id')
+            ->whereNotNull('vehicle_class_id')
+            ->selectRaw('vehicle_class_id, COUNT(*) as trips')
+            ->groupBy('vehicle_class_id')
             ->get();
 
         $totalTrips = (int) $rows->sum('trips');
@@ -1954,16 +1874,16 @@ class BookingController extends Controller
             return [];
         }
 
-        $vehicleIds = $rows->pluck('vehicle_id')->all();
-        $vehicles = Vehicle::whereIn('id', $vehicleIds)->get(['id', 'name'])->keyBy('id');
+        $vehicleClassIds = $rows->pluck('vehicle_class_id')->all();
+        $vehicleClasses = VehicleClass::whereIn('id', $vehicleClassIds)->get(['id', 'name'])->keyBy('id');
 
-        return $rows->map(function ($row) use ($vehicles, $totalTrips) {
-            $vehicle = $vehicles->get($row->vehicle_id);
+        return $rows->map(function ($row) use ($vehicleClasses, $totalTrips) {
+            $vehicleClass = $vehicleClasses->get($row->vehicle_class_id);
             $percent = $totalTrips > 0 ? round(($row->trips / $totalTrips) * 100, 2) : 0;
 
             return [
-                'vehicle_id' => $row->vehicle_id,
-                'vehicle_name' => $vehicle?->name,
+                'vehicle_class_id' => $row->vehicle_class_id,
+                'vehicle_class_name' => $vehicleClass?->name,
                 'trips' => (int) $row->trips,
                 'utilization_percent' => $percent,
             ];

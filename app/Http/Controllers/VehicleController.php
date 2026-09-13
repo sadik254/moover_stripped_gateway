@@ -4,12 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Company;
 use App\Models\Vehicle;
-use App\Models\VehicleClass;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Uploadcare\Api;
 use Uploadcare\Configuration;
-use Illuminate\Validation\Rule;
 
 class VehicleController extends Controller
 {
@@ -22,18 +21,18 @@ class VehicleController extends Controller
 
         if (! $company) {
             return response()->json([
-                'message' => 'Company not found'
+                'message' => 'Company not found',
             ], 404);
         }
 
         $vehicles = Vehicle::where('company_id', $company->id)
             ->with([
-                'vehicleClass:id,name'
+                'vehicleClass:id,name',
             ])
             ->get();
 
         return response()->json([
-            'data' => $vehicles
+            'data' => $vehicles,
         ]);
     }
 
@@ -46,7 +45,7 @@ class VehicleController extends Controller
 
         if (! $company) {
             return response()->json([
-                'message' => 'Company not found'
+                'message' => 'Company not found',
             ], 404);
         }
 
@@ -56,24 +55,19 @@ class VehicleController extends Controller
                 Rule::exists('vehicle_classes', 'id')
                     ->where('company_id', $company->id),
             ],
-            'name'         => 'required|string|max:255',
-            'category'     => 'nullable|string|max:100',
-            'capacity'     => 'required|integer|min:1',
-            'luggage'      => 'nullable|integer|min:0',
-            'hourly_rate'  => 'nullable|numeric|min:0',
-            'per_km_rate'  => 'nullable|numeric|min:0',
-            'airport_rate' => 'nullable|numeric|min:0',
-            'status'       => 'nullable|string|max:50',
+            'name' => 'required|string|max:255',
+            'category' => 'nullable|string|max:100',
+            'status' => 'nullable|string|max:50',
             'plate_number' => 'nullable|string|max:50|unique:vehicles,plate_number',
-            'color'        => 'nullable|string|max:50',
-            'model'        => 'nullable|string|max:100',
-            'image'        => 'nullable|file|image|max:5120',
+            'color' => 'nullable|string|max:50',
+            'model' => 'nullable|string|max:100',
+            'image' => 'nullable|file|image|max:5120',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'message' => 'Validation failed',
-                'errors'  => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -81,11 +75,6 @@ class VehicleController extends Controller
             'vehicle_class_id',
             'name',
             'category',
-            'capacity',
-            'luggage',
-            'hourly_rate',
-            'per_km_rate',
-            'airport_rate',
             'status',
             'plate_number',
             'color',
@@ -112,7 +101,7 @@ class VehicleController extends Controller
 
         return response()->json([
             'message' => 'Vehicle created successfully',
-            'data'    => $vehicle
+            'data' => $vehicle,
         ], 201);
     }
 
@@ -125,7 +114,7 @@ class VehicleController extends Controller
 
         if (! $company) {
             return response()->json([
-                'message' => 'Company not found'
+                'message' => 'Company not found',
             ], 404);
         }
 
@@ -136,12 +125,12 @@ class VehicleController extends Controller
 
         if (! $vehicle) {
             return response()->json([
-                'message' => 'Vehicle not found'
+                'message' => 'Vehicle not found',
             ], 404);
         }
 
         return response()->json([
-            'data' => $vehicle
+            'data' => $vehicle,
         ]);
     }
 
@@ -154,7 +143,7 @@ class VehicleController extends Controller
 
         if (! $company) {
             return response()->json([
-                'message' => 'Company not found'
+                'message' => 'Company not found',
             ], 404);
         }
 
@@ -164,7 +153,7 @@ class VehicleController extends Controller
 
         if (! $vehicle) {
             return response()->json([
-                'message' => 'Vehicle not found'
+                'message' => 'Vehicle not found',
             ], 404);
         }
 
@@ -174,14 +163,9 @@ class VehicleController extends Controller
                 Rule::exists('vehicle_classes', 'id')
                     ->where('company_id', $company->id),
             ],
-            'name'         => 'sometimes|required|string|max:255',
-            'category'     => 'sometimes|nullable|string|max:100',
-            'capacity'     => 'sometimes|nullable|integer|min:1',
-            'luggage'      => 'sometimes|nullable|integer|min:0',
-            'hourly_rate'  => 'sometimes|nullable|numeric|min:0',
-            'per_km_rate'  => 'sometimes|nullable|numeric|min:0',
-            'airport_rate' => 'sometimes|nullable|numeric|min:0',
-            'status'       => 'sometimes|nullable|string|max:50',
+            'name' => 'sometimes|required|string|max:255',
+            'category' => 'sometimes|nullable|string|max:100',
+            'status' => 'sometimes|nullable|string|max:50',
             'plate_number' => [
                 'sometimes',
                 'nullable',
@@ -195,7 +179,7 @@ class VehicleController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'message' => 'Validation failed',
-                'errors'  => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -219,11 +203,6 @@ class VehicleController extends Controller
                 'vehicle_class_id',
                 'name',
                 'category',
-                'capacity',
-                'luggage',
-                'hourly_rate',
-                'per_km_rate',
-                'airport_rate',
                 'status',
                 'plate_number',
                 'color',
@@ -235,7 +214,7 @@ class VehicleController extends Controller
 
         return response()->json([
             'message' => 'Vehicle updated successfully',
-            'data'    => $vehicle
+            'data' => $vehicle,
         ]);
     }
 
@@ -248,7 +227,7 @@ class VehicleController extends Controller
 
         if (! $company) {
             return response()->json([
-                'message' => 'Company not found'
+                'message' => 'Company not found',
             ], 404);
         }
 
@@ -258,14 +237,14 @@ class VehicleController extends Controller
 
         if (! $vehicle) {
             return response()->json([
-                'message' => 'Vehicle not found'
+                'message' => 'Vehicle not found',
             ], 404);
         }
 
         $vehicle->delete();
 
         return response()->json([
-            'message' => 'Vehicle deleted successfully'
+            'message' => 'Vehicle deleted successfully',
         ]);
     }
 }

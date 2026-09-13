@@ -43,8 +43,8 @@
                                 @endif
                                 <tr><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#64748b;font-size:13px;">Pickup time</td><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#0f172a;font-size:14px;font-weight:600;">{{ $pickupTime }}</td></tr>
                                 <tr><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#64748b;font-size:13px;">Passengers</td><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#0f172a;font-size:14px;font-weight:600;">{{ $booking->passengers }}</td></tr>
-                                @if ($booking->vehicle)
-                                    <tr><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#64748b;font-size:13px;">Vehicle</td><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#0f172a;font-size:14px;font-weight:600;">{{ $booking->vehicle->name }}</td></tr>
+                                @if ($booking->vehicleClass)
+                                    <tr><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#64748b;font-size:13px;">Vehicle class</td><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#0f172a;font-size:14px;font-weight:600;">{{ $booking->vehicleClass->name }}</td></tr>
                                 @endif
                                 @if ($booking->driver)
                                     <tr><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#64748b;font-size:13px;">Driver</td><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#0f172a;font-size:14px;font-weight:600;">{{ $booking->driver->name }}</td></tr>

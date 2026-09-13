@@ -394,6 +394,31 @@
                   "type": "file",
                   "src": [],
                   "description": "Optional vehicle-class image, maximum 5 MB"
+                },
+                {
+                  "key": "capacity",
+                  "value": "4",
+                  "type": "text"
+                },
+                {
+                  "key": "luggage",
+                  "value": "3",
+                  "type": "text"
+                },
+                {
+                  "key": "hourly_rate",
+                  "value": "40",
+                  "type": "text"
+                },
+                {
+                  "key": "per_km_rate",
+                  "value": "3.50",
+                  "type": "text"
+                },
+                {
+                  "key": "airport_rate",
+                  "value": "8",
+                  "type": "text"
                 }
               ]
             },
@@ -439,6 +464,31 @@
                   "type": "file",
                   "src": [],
                   "description": "Optional replacement vehicle-class image, maximum 5 MB"
+                },
+                {
+                  "key": "capacity",
+                  "value": "4",
+                  "type": "text"
+                },
+                {
+                  "key": "luggage",
+                  "value": "3",
+                  "type": "text"
+                },
+                {
+                  "key": "hourly_rate",
+                  "value": "40",
+                  "type": "text"
+                },
+                {
+                  "key": "per_km_rate",
+                  "value": "3.50",
+                  "type": "text"
+                },
+                {
+                  "key": "airport_rate",
+                  "value": "8",
+                  "type": "text"
                 }
               ]
             },
@@ -480,31 +530,6 @@
                 {
                   "key": "category",
                   "value": "Sedan",
-                  "type": "text"
-                },
-                {
-                  "key": "capacity",
-                  "value": "4",
-                  "type": "text"
-                },
-                {
-                  "key": "luggage",
-                  "value": "3",
-                  "type": "text"
-                },
-                {
-                  "key": "hourly_rate",
-                  "value": "40",
-                  "type": "text"
-                },
-                {
-                  "key": "per_km_rate",
-                  "value": "3.50",
-                  "type": "text"
-                },
-                {
-                  "key": "airport_rate",
-                  "value": "8",
                   "type": "text"
                 },
                 {
@@ -575,31 +600,6 @@
                 {
                   "key": "category",
                   "value": "Sedan",
-                  "type": "text"
-                },
-                {
-                  "key": "capacity",
-                  "value": "4",
-                  "type": "text"
-                },
-                {
-                  "key": "luggage",
-                  "value": "3",
-                  "type": "text"
-                },
-                {
-                  "key": "hourly_rate",
-                  "value": "45",
-                  "type": "text"
-                },
-                {
-                  "key": "per_km_rate",
-                  "value": "4",
-                  "type": "text"
-                },
-                {
-                  "key": "airport_rate",
-                  "value": "10",
                   "type": "text"
                 },
                 {
@@ -1240,7 +1240,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"name\":\"Walk-in Passenger\",\"email\":\"passenger@example.com\",\"phone\":\"+8801600000000\",\"vehicle_id\":\"{{vehicle_id}}\",\"service_type\":\"point_to_point\",\"pickup_address\":\"Hazrat Shahjalal International Airport\",\"dropoff_address\":\"Gulshan 2, Dhaka\",\"pickup_time\":\"2026-12-01 10:00:00\",\"dropoff_time\":\"2026-12-01 12:00:00\",\"passengers\":2,\"bags\":2,\"flight_number\":\"BG-123\",\"airlines\":\"Biman Bangladesh\",\"distance_km\":18.5,\"hours\":2,\"extras_price\":10,\"parking\":5,\"others\":0,\"airport_fees\":12,\"congestion_charge\":3,\"payment_method\":\"card\",\"payment_status\":\"pending\",\"status\":\"pending\",\"notes\":\"Please call on arrival\"}",
+              "raw": "{\"name\":\"Walk-in Passenger\",\"email\":\"passenger@example.com\",\"phone\":\"+8801600000000\",\"service_type\":\"point_to_point\",\"pickup_address\":\"Hazrat Shahjalal International Airport\",\"dropoff_address\":\"Gulshan 2, Dhaka\",\"pickup_time\":\"2026-12-01 10:00:00\",\"dropoff_time\":\"2026-12-01 12:00:00\",\"passengers\":2,\"bags\":2,\"flight_number\":\"BG-123\",\"airlines\":\"Biman Bangladesh\",\"distance_km\":18.5,\"hours\":2,\"extras_price\":10,\"parking\":5,\"others\":0,\"airport_fees\":12,\"congestion_charge\":3,\"payment_method\":\"card\",\"payment_status\":\"pending\",\"status\":\"pending\",\"notes\":\"Please call on arrival\",\"vehicle_class_id\":\"{{vehicle_class_id}}\"}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1330,13 +1330,6 @@
           }
         },
         {
-          "name": "Vehicle Availability",
-          "request": {
-            "method": "GET",
-            "url": "{{api_url}}/bookings/vehicle-availability?pickup_time=2026-08-01%2010:00:00&dropoff_time=2026-08-01%2012:00:00"
-          }
-        },
-        {
           "name": "Recent Booking Activity",
           "request": {
             "method": "GET",
@@ -1369,7 +1362,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"pickup_address\": \"Terminal 3, Dhaka Airport\",\n  \"passengers\": 3,\n  \"notes\": \"Updated booking details\"\n}"
+              "raw": "{\"pickup_address\":\"Terminal 3, Dhaka Airport\",\"passengers\":3,\"notes\":\"Updated booking details\",\"vehicle_class_id\":\"{{vehicle_class_id}}\"}"
             },
             "url": "{{api_url}}/bookings/update/{{booking_id}}"
           }

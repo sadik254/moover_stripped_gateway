@@ -69,7 +69,7 @@
                 </section>
 
                 <div class="dashboard-bottom-grid">
-                    <section id="fleet" class="panel compact-panel"><div class="panel-heading"><div><p class="eyebrow">Fleet readiness</p><h2>Vehicle availability</h2></div><a href="#fleet" class="text-link">Fleet <span>→</span></a></div><div id="availability-list" class="availability-list"><p class="empty-state">Loading availability...</p></div></section>
+                    <section id="fleet" class="panel compact-panel"><div class="panel-heading"><div><p class="eyebrow">Booking options</p><h2>Vehicle classes</h2></div><a href="#fleet" class="text-link">Classes <span>→</span></a></div><div id="availability-list" class="availability-list"><p class="empty-state">Loading vehicle classes...</p></div></section>
                     <section id="activity" class="panel compact-panel"><div class="panel-heading"><div><p class="eyebrow">Team timeline</p><h2>Recent activity</h2></div></div><ol id="activity-list" class="activity-list"><li class="empty-state">Loading recent activity...</li></ol></section>
                     <section class="panel quick-actions"><div class="panel-heading"><div><p class="eyebrow">Shortcuts</p><h2>Quick actions</h2></div></div><div class="quick-action-grid"><a href="#live-operations"><span>+</span><b>Review bookings</b><small>Dispatch board</small></a><a href="#fleet"><span>↗</span><b>Manage fleet</b><small>Vehicles &amp; drivers</small></a><a href="#activity"><span>◉</span><b>View activity</b><small>Latest changes</small></a></div></section>
                 </div>

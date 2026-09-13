@@ -68,8 +68,8 @@
             </div>
         @endif
 
-        @if ($booking->vehicle)
-            <div class="vehicle"><span>Vehicle: </span>{{ $booking->vehicle->name }}</div>
+        @if ($booking->vehicleClass)
+            <div class="vehicle"><span>Vehicle class: </span>{{ $booking->vehicleClass->name }}</div>
         @endif
 
         <div class="passenger">

@@ -17,14 +17,14 @@ class VehicleClassController extends Controller
 
         if (! $company) {
             return response()->json([
-                'message' => 'Company not found'
+                'message' => 'Company not found',
             ], 404);
         }
 
         $classes = VehicleClass::where('company_id', $company->id)->get();
 
         return response()->json([
-            'data' => $classes
+            'data' => $classes,
         ]);
     }
 
@@ -34,24 +34,37 @@ class VehicleClassController extends Controller
 
         if (! $company) {
             return response()->json([
-                'message' => 'Company not found'
+                'message' => 'Company not found',
             ], 404);
         }
 
         $validator = Validator::make($request->all(), [
-            'name'        => 'required|string|max:255',
+            'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'image'       => 'nullable|file|image|max:5120',
+            'image' => 'nullable|file|image|max:5120',
+            'capacity' => 'required|integer|min:1',
+            'luggage' => 'required|integer|min:0',
+            'hourly_rate' => 'nullable|numeric|min:0',
+            'per_km_rate' => 'nullable|numeric|min:0',
+            'airport_rate' => 'nullable|numeric|min:0',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'message' => 'Validation failed',
-                'errors'  => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
-        $data = $request->only(['name', 'description']);
+        $data = $request->only([
+            'name',
+            'description',
+            'capacity',
+            'luggage',
+            'hourly_rate',
+            'per_km_rate',
+            'airport_rate',
+        ]);
 
         // Uploadcare image
         if ($request->hasFile('image')) {
@@ -74,7 +87,7 @@ class VehicleClassController extends Controller
 
         return response()->json([
             'message' => 'Vehicle class created successfully',
-            'data'    => $vehicleClass
+            'data' => $vehicleClass,
         ], 201);
     }
 
@@ -84,7 +97,7 @@ class VehicleClassController extends Controller
 
         if (! $company) {
             return response()->json([
-                'message' => 'Company not found'
+                'message' => 'Company not found',
             ], 404);
         }
 
@@ -95,12 +108,12 @@ class VehicleClassController extends Controller
 
         if (! $vehicleClass) {
             return response()->json([
-                'message' => 'Vehicle class not found'
+                'message' => 'Vehicle class not found',
             ], 404);
         }
 
         return response()->json([
-            'data' => $vehicleClass
+            'data' => $vehicleClass,
         ], 200);
     }
 
@@ -110,7 +123,7 @@ class VehicleClassController extends Controller
 
         if (! $company) {
             return response()->json([
-                'message' => 'Company not found'
+                'message' => 'Company not found',
             ], 404);
         }
 
@@ -118,7 +131,7 @@ class VehicleClassController extends Controller
 
         if (! $vehicleClass) {
             return response()->json([
-                'message' => 'Vehicle class not found'
+                'message' => 'Vehicle class not found',
             ], 404);
         }
 
@@ -134,13 +147,18 @@ class VehicleClassController extends Controller
                     ->ignore($vehicleClass->id),
             ],
             'description' => 'sometimes|nullable|string',
-            'image'       => 'sometimes|nullable|file|image|max:5120',
+            'image' => 'sometimes|nullable|file|image|max:5120',
+            'capacity' => 'sometimes|required|integer|min:1',
+            'luggage' => 'sometimes|required|integer|min:0',
+            'hourly_rate' => 'sometimes|nullable|numeric|min:0',
+            'per_km_rate' => 'sometimes|nullable|numeric|min:0',
+            'airport_rate' => 'sometimes|nullable|numeric|min:0',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'message' => 'Validation failed',
-                'errors'  => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -162,14 +180,22 @@ class VehicleClassController extends Controller
 
         // Update only provided fields
         $vehicleClass->fill(
-            $request->only(['name', 'description'])
+            $request->only([
+                'name',
+                'description',
+                'capacity',
+                'luggage',
+                'hourly_rate',
+                'per_km_rate',
+                'airport_rate',
+            ])
         );
 
         $vehicleClass->save();
 
         return response()->json([
             'message' => 'Vehicle class updated successfully',
-            'data'    => $vehicleClass
+            'data' => $vehicleClass,
         ], 200);
     }
 
@@ -179,7 +205,7 @@ class VehicleClassController extends Controller
 
         if (! $company) {
             return response()->json([
-                'message' => 'Company not found'
+                'message' => 'Company not found',
             ], 404);
         }
 
@@ -189,14 +215,14 @@ class VehicleClassController extends Controller
 
         if (! $vehicleClass) {
             return response()->json([
-                'message' => 'Vehicle class not found'
+                'message' => 'Vehicle class not found',
             ], 404);
         }
 
         $vehicleClass->delete();
 
         return response()->json([
-            'message' => 'Vehicle class deleted successfully'
+            'message' => 'Vehicle class deleted successfully',
         ], 200);
     }
 }

@@ -16,7 +16,7 @@ class Booking extends Model
         'name',
         'email',
         'phone',
-        'vehicle_id',
+        'vehicle_class_id',
         'driver_id',
         'affiliate_id',
         'assigned_affiliate_driver_id',
@@ -72,9 +72,9 @@ class Booking extends Model
         return $this->belongsTo(Customer::class);
     }
 
-    public function vehicle()
+    public function vehicleClass()
     {
-        return $this->belongsTo(Vehicle::class);
+        return $this->belongsTo(VehicleClass::class);
     }
 
     public function driver()

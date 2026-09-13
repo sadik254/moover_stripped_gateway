@@ -415,7 +415,7 @@ class AffiliateController extends Controller
 
         $query = Booking::with([
             'customer:id,name,email,phone',
-            'vehicle:id,name,plate_number,color,model,image',
+            'vehicleClass:id,name,capacity,luggage,image',
             'assignedAffiliateDriver:id,name,email,phone,status',
             'settlement',
         ])
@@ -459,7 +459,7 @@ class AffiliateController extends Controller
 
         $booking = Booking::with([
             'customer:id,name,email,phone',
-            'vehicle:id,name,plate_number,color,model,image',
+            'vehicleClass:id,name,capacity,luggage,image',
             'assignedAffiliateDriver:id,name,email,phone,status',
         ])
             ->where('affiliate_id', $affiliate->id)

@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Mail\BookingCreatedMail;
 use App\Models\Company;
 use App\Models\User;
-use App\Models\Vehicle;
 use App\Models\VehicleClass;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
@@ -37,19 +36,21 @@ class BookingPaymentAndNotificationsTest extends TestCase
         $vehicleClass = VehicleClass::create([
             'company_id' => $company->id,
             'name' => 'Standard',
-        ]);
-
-        Vehicle::create([
-            'company_id' => $company->id,
-            'name' => 'Test Van',
-            'category' => 'van',
             'capacity' => 6,
             'luggage' => 4,
             'hourly_rate' => 40,
             'per_km_rate' => 3.5,
             'airport_rate' => 8,
-            'vehicle_class_id' => $vehicleClass->id,
-            'status' => 'available',
+        ]);
+
+        $tinyClass = VehicleClass::create([
+            'company_id' => $company->id,
+            'name' => 'Tiny',
+            'capacity' => 2,
+            'luggage' => 1,
+            'hourly_rate' => 20,
+            'per_km_rate' => 2,
+            'airport_rate' => 5,
         ]);
 
         $payload = [
@@ -59,24 +60,47 @@ class BookingPaymentAndNotificationsTest extends TestCase
             'pickup_address' => '123 Pickup St',
             'pickup_time' => now()->addHour()->toISOString(),
             'passengers' => 3,
+            'bags' => 2,
             'distance_km' => 10,
         ];
 
         $quote = $this->postJson('/api/bookings', $payload);
         $quote->assertOk();
         $quote->assertJsonPath('data.service_type', 'point_to_point');
-        $quote->assertJsonPath('data.vehicle_options.0.vehicle_id', 1);
+        $quote->assertJsonPath('data.vehicle_class_options.0.vehicle_class_id', $vehicleClass->id);
+        $quote->assertJsonPath('data.vehicle_class_options.0.fits_passengers', true);
+        $quote->assertJsonPath('data.vehicle_class_options.0.fits_luggage', true);
+        $quote->assertJsonPath('data.vehicle_class_options.0.recommended', true);
+        $quote->assertJsonFragment([
+            'name' => 'Tiny',
+            'fits_passengers' => false,
+            'fits_luggage' => false,
+            'recommended' => false,
+        ]);
 
-        $response = $this->postJson('/api/bookings', $payload + ['vehicle_id' => 1]);
+        $this->postJson('/api/bookings', $payload + ['vehicle_class_id' => $tinyClass->id])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Selected vehicle class cannot accommodate the requested passengers and luggage');
+
+        $response = $this->postJson('/api/bookings', $payload + ['vehicle_class_id' => $vehicleClass->id]);
 
         $response->assertCreated();
         $response->assertJsonPath('data.service_type', 'point_to_point');
         $response->assertJsonPath('data.distance_km', 10);
+        $response->assertJsonPath('data.vehicle_class_id', $vehicleClass->id);
+        $response->assertJsonMissingPath('data.vehicle_id');
+        $response->assertJsonPath('calculation.rate', 3.5);
         $response->assertJsonStructure(['calculation' => ['total_price']]);
         Mail::assertSent(BookingCreatedMail::class, 2);
         Mail::assertSent(BookingCreatedMail::class, fn (BookingCreatedMail $mail): bool => $mail->hasTo('booking.contact@example.com') && ! $mail->isAdminCopy
         );
         Mail::assertSent(BookingCreatedMail::class, fn (BookingCreatedMail $mail): bool => $mail->hasTo('reservations@squarelimo.com') && $mail->isAdminCopy
         );
+
+        $secondResponse = $this->postJson('/api/bookings', $payload + [
+            'email' => 'second.booking@example.com',
+            'vehicle_class_id' => $vehicleClass->id,
+        ]);
+        $secondResponse->assertCreated();
     }
 }

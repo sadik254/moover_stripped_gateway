@@ -14,6 +14,11 @@ class VehicleClass extends Model
         'name',
         'description',
         'image',
+        'capacity',
+        'luggage',
+        'hourly_rate',
+        'per_km_rate',
+        'airport_rate',
     ];
 
     public function company()
@@ -24,5 +29,10 @@ class VehicleClass extends Model
     public function vehicles()
     {
         return $this->hasMany(Vehicle::class);
+    }
+
+    public function bookings()
+    {
+        return $this->hasMany(Booking::class);
     }
 }

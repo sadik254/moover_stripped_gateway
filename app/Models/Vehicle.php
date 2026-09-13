@@ -10,21 +10,16 @@ class Vehicle extends Model
     use HasFactory;
 
     protected $fillable = [
-        'company_id', 
-        'name', 
-        'category', 
-        'capacity', 
-        'luggage', 
-        'hourly_rate',
-        'per_km_rate', 
-        'airport_rate',
+        'company_id',
+        'name',
+        'category',
         'vehicle_class_id',
         'status',
         'plate_number',
         'color',
         'model',
         'image',
-        ];
+    ];
 
     public function company()
     {
@@ -35,6 +30,7 @@ class Vehicle extends Model
     {
         return $this->belongsTo(VehicleClass::class);
     }
+
     public function drivers()
     {
         return $this->hasMany(Driver::class);
