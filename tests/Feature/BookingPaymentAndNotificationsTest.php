@@ -79,8 +79,8 @@ class BookingPaymentAndNotificationsTest extends TestCase
         ]);
 
         $this->postJson('/api/bookings', $payload + ['vehicle_class_id' => $tinyClass->id])
-            ->assertUnprocessable()
-            ->assertJsonPath('message', 'Selected vehicle class cannot accommodate the requested passengers and luggage');
+            ->assertCreated()
+            ->assertJsonPath('data.vehicle_class_id', $tinyClass->id);
 
         $response = $this->postJson('/api/bookings', $payload + ['vehicle_class_id' => $vehicleClass->id]);
 
@@ -91,7 +91,7 @@ class BookingPaymentAndNotificationsTest extends TestCase
         $response->assertJsonMissingPath('data.vehicle_id');
         $response->assertJsonPath('calculation.rate', 3.5);
         $response->assertJsonStructure(['calculation' => ['total_price']]);
-        Mail::assertSent(BookingCreatedMail::class, 2);
+        Mail::assertSent(BookingCreatedMail::class, 4);
         Mail::assertSent(BookingCreatedMail::class, fn (BookingCreatedMail $mail): bool => $mail->hasTo('booking.contact@example.com') && ! $mail->isAdminCopy
         );
         Mail::assertSent(BookingCreatedMail::class, fn (BookingCreatedMail $mail): bool => $mail->hasTo('reservations@squarelimo.com') && $mail->isAdminCopy

@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Moover Complete API & Route Collection",
-    "description": "Complete collection for every registered Moover route. {{base_url}} is the application origin and {{api_url}} resolves to {{base_url}}/api. Authenticated requests inherit Bearer {{token}}. Login requests automatically save returned tokens. File-upload requests use multipart form-data with selectable file fields. Destructive requests are disabled by default.",
+    "description": "Complete collection for every registered Moover route. {{base_url}} is the application origin and {{api_url}} resolves to {{base_url}}/api. Authenticated requests inherit Bearer {{token}}. Login requests automatically save returned tokens. File-upload requests use multipart form-data with selectable file fields. Destructive requests are disabled by default. The Bookings folder contains explicit quote and creation payloads for point-to-point, hourly, airport, and custom bookings.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -1226,7 +1226,7 @@
       "name": "Bookings",
       "item": [
         {
-          "name": "Create Booking",
+          "name": "Create Point-to-Point Booking",
           "request": {
             "auth": {
               "type": "noauth"
@@ -1441,6 +1441,181 @@
           "request": {
             "method": "DELETE",
             "url": "{{api_url}}/bookings/{{booking_id}}"
+          }
+        },
+        {
+          "name": "Quote Vehicle Classes — Point to Point",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"POINT TO POINT Passenger\",\"email\":\"point_to_point.passenger@example.com\",\"phone\":\"+8801600000000\",\"service_type\":\"point_to_point\",\"pickup_address\":\"Hazrat Shahjalal International Airport\",\"dropoff_address\":\"Gulshan 2, Dhaka\",\"pickup_time\":\"2026-12-15 10:00:00\",\"dropoff_time\":\"2026-12-15 13:00:00\",\"passengers\":2,\"bags\":2,\"extras_price\":10,\"parking\":5,\"airport_fees\":12,\"congestion_charge\":3,\"payment_method\":\"card\",\"payment_status\":\"pending\",\"status\":\"pending\",\"notes\":\"Please call on arrival\",\"distance_km\":18.5}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{api_url}}/bookings"
+          }
+        },
+        {
+          "name": "Quote Vehicle Classes — Hourly",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"HOURLY Passenger\",\"email\":\"hourly.passenger@example.com\",\"phone\":\"+8801600000000\",\"service_type\":\"hourly\",\"pickup_address\":\"Hazrat Shahjalal International Airport\",\"dropoff_address\":\"Gulshan 2, Dhaka\",\"pickup_time\":\"2026-12-15 10:00:00\",\"dropoff_time\":\"2026-12-15 13:00:00\",\"passengers\":2,\"bags\":2,\"extras_price\":10,\"parking\":5,\"airport_fees\":12,\"congestion_charge\":3,\"payment_method\":\"card\",\"payment_status\":\"pending\",\"status\":\"pending\",\"notes\":\"Please call on arrival\",\"hours\":3}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{api_url}}/bookings"
+          }
+        },
+        {
+          "name": "Create Hourly Booking",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"HOURLY Passenger\",\"email\":\"hourly.passenger@example.com\",\"phone\":\"+8801600000000\",\"service_type\":\"hourly\",\"pickup_address\":\"Hazrat Shahjalal International Airport\",\"dropoff_address\":\"Gulshan 2, Dhaka\",\"pickup_time\":\"2026-12-15 10:00:00\",\"dropoff_time\":\"2026-12-15 13:00:00\",\"passengers\":2,\"bags\":2,\"extras_price\":10,\"parking\":5,\"airport_fees\":12,\"congestion_charge\":3,\"payment_method\":\"card\",\"payment_status\":\"pending\",\"status\":\"pending\",\"notes\":\"Please call on arrival\",\"hours\":3,\"vehicle_class_id\":\"{{vehicle_class_id}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{api_url}}/bookings"
+          }
+        },
+        {
+          "name": "Quote Vehicle Classes — Airport",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"AIRPORT Passenger\",\"email\":\"airport.passenger@example.com\",\"phone\":\"+8801600000000\",\"service_type\":\"airport\",\"pickup_address\":\"Hazrat Shahjalal International Airport\",\"dropoff_address\":\"Gulshan 2, Dhaka\",\"pickup_time\":\"2026-12-15 10:00:00\",\"dropoff_time\":\"2026-12-15 13:00:00\",\"passengers\":2,\"bags\":2,\"extras_price\":10,\"parking\":5,\"airport_fees\":12,\"congestion_charge\":3,\"payment_method\":\"card\",\"payment_status\":\"pending\",\"status\":\"pending\",\"notes\":\"Please call on arrival\",\"distance_km\":25,\"flight_number\":\"BG-123\",\"airlines\":\"Biman Bangladesh\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{api_url}}/bookings"
+          }
+        },
+        {
+          "name": "Create Airport Booking",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"AIRPORT Passenger\",\"email\":\"airport.passenger@example.com\",\"phone\":\"+8801600000000\",\"service_type\":\"airport\",\"pickup_address\":\"Hazrat Shahjalal International Airport\",\"dropoff_address\":\"Gulshan 2, Dhaka\",\"pickup_time\":\"2026-12-15 10:00:00\",\"dropoff_time\":\"2026-12-15 13:00:00\",\"passengers\":2,\"bags\":2,\"extras_price\":10,\"parking\":5,\"airport_fees\":12,\"congestion_charge\":3,\"payment_method\":\"card\",\"payment_status\":\"pending\",\"status\":\"pending\",\"notes\":\"Please call on arrival\",\"distance_km\":25,\"flight_number\":\"BG-123\",\"airlines\":\"Biman Bangladesh\",\"vehicle_class_id\":\"{{vehicle_class_id}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{api_url}}/bookings"
+          }
+        },
+        {
+          "name": "Quote Vehicle Classes — Custom",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"CUSTOM Passenger\",\"email\":\"custom.passenger@example.com\",\"phone\":\"+8801600000000\",\"service_type\":\"custom\",\"pickup_address\":\"Hazrat Shahjalal International Airport\",\"dropoff_address\":\"Gulshan 2, Dhaka\",\"pickup_time\":\"2026-12-15 10:00:00\",\"dropoff_time\":\"2026-12-15 13:00:00\",\"passengers\":2,\"bags\":2,\"extras_price\":10,\"parking\":5,\"airport_fees\":12,\"congestion_charge\":3,\"payment_method\":\"card\",\"payment_status\":\"pending\",\"status\":\"pending\",\"notes\":\"Please call on arrival\",\"distance_km\":12}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{api_url}}/bookings"
+          }
+        },
+        {
+          "name": "Create Custom Booking",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"CUSTOM Passenger\",\"email\":\"custom.passenger@example.com\",\"phone\":\"+8801600000000\",\"service_type\":\"custom\",\"pickup_address\":\"Hazrat Shahjalal International Airport\",\"dropoff_address\":\"Gulshan 2, Dhaka\",\"pickup_time\":\"2026-12-15 10:00:00\",\"dropoff_time\":\"2026-12-15 13:00:00\",\"passengers\":2,\"bags\":2,\"extras_price\":10,\"parking\":5,\"airport_fees\":12,\"congestion_charge\":3,\"payment_method\":\"card\",\"payment_status\":\"pending\",\"status\":\"pending\",\"notes\":\"Please call on arrival\",\"distance_km\":12,\"vehicle_class_id\":\"{{vehicle_class_id}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{api_url}}/bookings"
           }
         }
       ]

@@ -749,12 +749,6 @@ class BookingController extends Controller
             ], 404);
         }
 
-        if ((int) $vehicleClass->capacity < $passengers || (int) $vehicleClass->luggage < $bags) {
-            return response()->json([
-                'message' => 'Selected vehicle class cannot accommodate the requested passengers and luggage',
-            ], 422);
-        }
-
         try {
             $booking = DB::transaction(function () use ($request, $company, $vehicleClass, $authUser) {
                 $systemConfig = $this->getSystemConfig($company->id);
@@ -1035,18 +1029,6 @@ class BookingController extends Controller
             return response()->json([
                 'message' => 'Hours is required for hourly service',
             ], 422);
-        }
-
-        $vehicleClassId = $request->input('vehicle_class_id', $booking->vehicle_class_id);
-        $passengers = (int) $request->input('passengers', $booking->passengers);
-        $bags = (int) $request->input('bags', $booking->bags ?? 0);
-        if ($vehicleClassId) {
-            $vehicleClass = VehicleClass::where('company_id', $company->id)->find($vehicleClassId);
-            if (! $vehicleClass || (int) $vehicleClass->capacity < $passengers || (int) $vehicleClass->luggage < $bags) {
-                return response()->json([
-                    'message' => 'Selected vehicle class cannot accommodate the requested passengers and luggage',
-                ], 422);
-            }
         }
 
         $authUser = $request->user();
