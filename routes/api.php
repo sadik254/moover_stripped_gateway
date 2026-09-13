@@ -47,7 +47,7 @@ Route::middleware(['auth:sanctum', 'user.only:admin'])->post('/system-config', [
 Route::middleware(['auth:sanctum', 'user.only:admin'])->post('/system-config/update', [SystemConfigController::class, 'update']);
 
 // Authenticated Vehicle Class Routes
-Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('/vehicle-classes', [VehicleClassController::class, 'index']);
+Route::get('/vehicle-classes', [VehicleClassController::class, 'index']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('/vehicle-classes', [VehicleClassController::class, 'store']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('/vehicle-classes/{id}', [VehicleClassController::class, 'show']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('/vehicle-classes/update/{id}', [VehicleClassController::class, 'update']);
