@@ -697,6 +697,8 @@ class BookingController extends Controller
         }
 
         $passengers = (int) $request->passengers;
+        $children = (int) ($request->child_seats ?? 0);
+        $requiredPassengerCapacity = $passengers + $children;
         $bags = (int) ($request->bags ?? 0);
 
         $systemConfig = $this->getSystemConfig($company->id);
@@ -704,9 +706,9 @@ class BookingController extends Controller
         $vehicleClassOptions = VehicleClass::where('company_id', $company->id)
             ->orderBy('name')
             ->get()
-            ->map(function (VehicleClass $vehicleClass) use ($request, $passengers, $bags, $systemConfig) {
+            ->map(function (VehicleClass $vehicleClass) use ($request, $requiredPassengerCapacity, $bags, $systemConfig) {
                 $priceCalculation = $this->calculatePrice($vehicleClass, $this->buildPriceInput($request, $systemConfig));
-                $fitsPassengers = (int) $vehicleClass->capacity >= $passengers;
+                $fitsPassengers = (int) $vehicleClass->capacity >= $requiredPassengerCapacity;
                 $fitsLuggage = (int) $vehicleClass->luggage >= $bags;
 
                 return [
@@ -726,13 +728,17 @@ class BookingController extends Controller
                     'fits_luggage' => $fitsLuggage,
                     'recommended' => $fitsPassengers && $fitsLuggage,
                 ];
-            })->values();
+            })
+            ->filter(fn (array $option): bool => $option['recommended'])
+            ->values();
 
         if (! $request->filled('vehicle_class_id')) {
             return response()->json([
                 'data' => [
                     'service_type' => $request->service_type,
                     'passengers' => (int) $request->passengers,
+                    'children' => $children,
+                    'required_passenger_capacity' => $requiredPassengerCapacity,
                     'bags' => $bags,
                     'distance_km' => (float) ($request->distance_km ?? 0),
                     'hours' => (float) ($request->hours ?? 0),

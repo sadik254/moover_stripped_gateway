@@ -53,13 +53,24 @@ class BookingPaymentAndNotificationsTest extends TestCase
             'airport_rate' => 5,
         ]);
 
+        $largeClass = VehicleClass::create([
+            'company_id' => $company->id,
+            'name' => 'XL',
+            'capacity' => 8,
+            'luggage' => 6,
+            'hourly_rate' => 55,
+            'per_km_rate' => 5,
+            'airport_rate' => 12,
+        ]);
+
         $payload = [
             'name' => 'Booking Contact',
             'email' => 'booking.contact@example.com',
             'service_type' => 'point_to_point',
             'pickup_address' => '123 Pickup St',
             'pickup_time' => now()->addHour()->toISOString(),
-            'passengers' => 3,
+            'passengers' => 4,
+            'child_seats' => 2,
             'bags' => 2,
             'distance_km' => 10,
         ];
@@ -71,16 +82,9 @@ class BookingPaymentAndNotificationsTest extends TestCase
         $quote->assertJsonPath('data.vehicle_class_options.0.fits_passengers', true);
         $quote->assertJsonPath('data.vehicle_class_options.0.fits_luggage', true);
         $quote->assertJsonPath('data.vehicle_class_options.0.recommended', true);
-        $quote->assertJsonFragment([
-            'name' => 'Tiny',
-            'fits_passengers' => false,
-            'fits_luggage' => false,
-            'recommended' => false,
-        ]);
-
-        $this->postJson('/api/bookings', $payload + ['vehicle_class_id' => $tinyClass->id])
-            ->assertCreated()
-            ->assertJsonPath('data.vehicle_class_id', $tinyClass->id);
+        $quote->assertJsonPath('data.required_passenger_capacity', 6);
+        $quote->assertJsonMissing(['vehicle_class_id' => $tinyClass->id]);
+        $quote->assertJsonFragment(['vehicle_class_id' => $largeClass->id, 'capacity' => 8]);
 
         $response = $this->postJson('/api/bookings', $payload + ['vehicle_class_id' => $vehicleClass->id]);
 
@@ -91,7 +95,7 @@ class BookingPaymentAndNotificationsTest extends TestCase
         $response->assertJsonMissingPath('data.vehicle_id');
         $response->assertJsonPath('calculation.rate', 3.5);
         $response->assertJsonStructure(['calculation' => ['total_price']]);
-        Mail::assertSent(BookingCreatedMail::class, 4);
+        Mail::assertSent(BookingCreatedMail::class, 2);
         Mail::assertSent(BookingCreatedMail::class, fn (BookingCreatedMail $mail): bool => $mail->hasTo('booking.contact@example.com') && ! $mail->isAdminCopy
         );
         Mail::assertSent(BookingCreatedMail::class, fn (BookingCreatedMail $mail): bool => $mail->hasTo('reservations@squarelimo.com') && $mail->isAdminCopy
