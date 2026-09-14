@@ -704,7 +704,10 @@ class BookingController extends Controller
         $systemConfig = $this->getSystemConfig($company->id);
 
         $vehicleClassOptions = VehicleClass::where('company_id', $company->id)
+            ->orderBy('capacity')
+            ->orderBy('luggage')
             ->orderBy('name')
+            ->orderBy('id')
             ->get()
             ->map(function (VehicleClass $vehicleClass) use ($request, $requiredPassengerCapacity, $bags, $systemConfig) {
                 $priceCalculation = $this->calculatePrice($vehicleClass, $this->buildPriceInput($request, $systemConfig));

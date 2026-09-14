@@ -85,6 +85,10 @@ class BookingPaymentAndNotificationsTest extends TestCase
         $quote->assertJsonPath('data.required_passenger_capacity', 6);
         $quote->assertJsonMissing(['vehicle_class_id' => $tinyClass->id]);
         $quote->assertJsonFragment(['vehicle_class_id' => $largeClass->id, 'capacity' => 8]);
+        $this->assertSame(
+            [$vehicleClass->id, $largeClass->id],
+            collect($quote->json('data.vehicle_class_options'))->pluck('vehicle_class_id')->all()
+        );
 
         $response = $this->postJson('/api/bookings', $payload + ['vehicle_class_id' => $vehicleClass->id]);
 
