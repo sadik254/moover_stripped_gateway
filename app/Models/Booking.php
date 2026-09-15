@@ -9,6 +9,8 @@ class Booking extends Model
 {
     use HasFactory;
 
+    protected $with = ['stops'];
+
     protected $fillable = [
         'company_id',
         'customer_id',
@@ -112,6 +114,11 @@ class Booking extends Model
     public function latestPayment()
     {
         return $this->hasOne(BookingPayment::class)->latestOfMany();
+    }
+
+    public function stops()
+    {
+        return $this->hasMany(BookingStop::class)->orderBy('position');
     }
 
     public function activities()

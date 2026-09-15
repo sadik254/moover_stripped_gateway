@@ -654,6 +654,8 @@ class BookingController extends Controller
             ],
             'hours' => 'nullable|numeric|min:0',
             'extra_stops' => 'nullable|integer|min:0',
+            'stops' => 'nullable|array',
+            'stops.*.address' => 'required|string|max:1000',
             'waiting_minutes' => 'nullable|numeric|min:0',
             'tolls' => 'nullable|numeric|min:0',
             'extras_price' => 'nullable|numeric|min:0',
@@ -812,6 +814,7 @@ class BookingController extends Controller
                 ]);
 
                 $data['company_id'] = $company->id;
+                $data['extra_stops'] = count($request->input('stops', []));
                 $data['base_price'] = $priceCalculation['base_price'];
                 $data['extra_stop_amount'] = $priceCalculation['extra_stop_amount'];
                 $data['waiting_time_amount'] = $priceCalculation['waiting_time_amount'];
@@ -849,6 +852,7 @@ class BookingController extends Controller
                 }
 
                 $booking = Booking::create($data);
+                $this->syncStops($booking, $request->input('stops', []));
                 $booking->setAttribute('price_calculation', $priceCalculation);
                 if ($isGuestBooking) {
                     $booking->setAttribute('issued_booking_access_token', $data['booking_access_token']);
@@ -1037,6 +1041,8 @@ class BookingController extends Controller
             ],
             'hours' => 'sometimes|nullable|numeric|min:0',
             'extra_stops' => 'sometimes|nullable|integer|min:0',
+            'stops' => 'sometimes|array',
+            'stops.*.address' => 'required|string|max:1000',
             'waiting_minutes' => 'sometimes|nullable|numeric|min:0',
             'tolls' => 'sometimes|nullable|numeric|min:0',
             'extras_price' => 'sometimes|nullable|numeric|min:0',
@@ -1119,6 +1125,11 @@ class BookingController extends Controller
                     ]));
                 }
 
+                if ($request->has('stops')) {
+                    $booking->extra_stops = count($request->input('stops', []));
+                    $this->syncStops($booking, $request->input('stops', []));
+                }
+
                 $latestPriceCalculation = null;
                 $isCancelled = (string) $booking->status === 'cancelled';
 
@@ -1161,6 +1172,7 @@ class BookingController extends Controller
                     'hours',
                     'airport_id',
                     'extra_stops',
+                    'stops',
                     'waiting_minutes',
                     'tolls',
                     'extras_price',
@@ -1996,7 +2008,9 @@ class BookingController extends Controller
             'extra_stop_fee' => (float) ($config->extra_stop_fee ?? 40),
             'wait_time_rate' => (float) ($config->wait_time_rate ?? 0),
             'waiting_grace_minutes' => (int) ($config->waiting_grace_minutes ?? 15),
-            'extra_stops' => (int) ($data->extra_stops ?? 0),
+            'extra_stops' => $data instanceof Request && $data->has('stops')
+                ? count($data->input('stops', []))
+                : (int) ($data->extra_stops ?? 0),
             'waiting_minutes' => (float) ($data->waiting_minutes ?? 0),
             'tolls' => (float) ($data->tolls ?? 0),
             'parking' => (float) ($data->parking ?? 0),
@@ -2252,6 +2266,20 @@ class BookingController extends Controller
         $settlement->status_reason = 'booking_cancelled';
         $settlement->accepted_at = $settlement->accepted_at ?: now();
         $settlement->save();
+    }
+
+    private function syncStops(Booking $booking, array $stops): void
+    {
+        $booking->stops()->delete();
+
+        foreach (array_values($stops) as $position => $stop) {
+            $booking->stops()->create([
+                'address' => $stop['address'],
+                'position' => $position + 1,
+            ]);
+        }
+
+        $booking->unsetRelation('stops');
     }
 
     private function buildCancellationPriceCalculation(float $cancellationFee, string $serviceType): array

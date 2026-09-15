@@ -1583,7 +1583,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"name\":\"POINT TO POINT Passenger\",\"email\":\"point_to_point.passenger@example.com\",\"phone\":\"+8801600000000\",\"service_type\":\"point_to_point\",\"pickup_address\":\"Hazrat Shahjalal International Airport\",\"dropoff_address\":\"Gulshan 2, Dhaka\",\"pickup_time\":\"2026-12-15 10:00:00\",\"dropoff_time\":\"2026-12-15 13:00:00\",\"passengers\":2,\"bags\":2,\"extras_price\":10,\"parking\":5,\"airport_fees\":12,\"congestion_charge\":3,\"payment_method\":\"card\",\"payment_status\":\"pending\",\"status\":\"pending\",\"notes\":\"Please call on arrival\",\"distance_km\":18.5,\"child_seats\":1}",
+              "raw": "{\"name\":\"POINT TO POINT Passenger\",\"email\":\"point_to_point.passenger@example.com\",\"phone\":\"+8801600000000\",\"service_type\":\"point_to_point\",\"pickup_address\":\"Hazrat Shahjalal International Airport\",\"stops\":[{\"address\":\"Banani, Dhaka\"},{\"address\":\"Mohakhali, Dhaka\"}],\"dropoff_address\":\"Gulshan 2, Dhaka\",\"pickup_time\":\"2026-12-15 10:00:00\",\"dropoff_time\":\"2026-12-15 13:00:00\",\"passengers\":2,\"bags\":2,\"extras_price\":10,\"parking\":5,\"airport_fees\":12,\"congestion_charge\":3,\"payment_method\":\"card\",\"payment_status\":\"pending\",\"status\":\"pending\",\"notes\":\"Please call on arrival\",\"distance_km\":18.5,\"child_seats\":1}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1608,7 +1608,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"name\":\"HOURLY Passenger\",\"email\":\"hourly.passenger@example.com\",\"phone\":\"+8801600000000\",\"service_type\":\"hourly\",\"pickup_address\":\"Hazrat Shahjalal International Airport\",\"dropoff_address\":\"Gulshan 2, Dhaka\",\"pickup_time\":\"2026-12-15 10:00:00\",\"dropoff_time\":\"2026-12-15 13:00:00\",\"passengers\":2,\"bags\":2,\"extras_price\":10,\"parking\":5,\"airport_fees\":12,\"congestion_charge\":3,\"payment_method\":\"card\",\"payment_status\":\"pending\",\"status\":\"pending\",\"notes\":\"Please call on arrival\",\"hours\":3,\"child_seats\":1}",
+              "raw": "{\"name\":\"HOURLY Passenger\",\"email\":\"hourly.passenger@example.com\",\"phone\":\"+8801600000000\",\"service_type\":\"hourly\",\"pickup_address\":\"Hazrat Shahjalal International Airport\",\"stops\":[{\"address\":\"Banani, Dhaka\"}],\"dropoff_address\":\"Gulshan 2, Dhaka\",\"pickup_time\":\"2026-12-15 10:00:00\",\"dropoff_time\":\"2026-12-15 13:00:00\",\"passengers\":2,\"bags\":2,\"extras_price\":10,\"parking\":5,\"airport_fees\":12,\"congestion_charge\":3,\"payment_method\":\"card\",\"payment_status\":\"pending\",\"status\":\"pending\",\"notes\":\"Please call on arrival\",\"hours\":3,\"child_seats\":1}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1633,7 +1633,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"name\":\"HOURLY Passenger\",\"email\":\"hourly.passenger@example.com\",\"phone\":\"+8801600000000\",\"service_type\":\"hourly\",\"pickup_address\":\"Hazrat Shahjalal International Airport\",\"dropoff_address\":\"Gulshan 2, Dhaka\",\"pickup_time\":\"2026-12-15 10:00:00\",\"dropoff_time\":\"2026-12-15 13:00:00\",\"passengers\":2,\"bags\":2,\"extras_price\":10,\"parking\":5,\"airport_fees\":12,\"congestion_charge\":3,\"payment_method\":\"card\",\"payment_status\":\"pending\",\"status\":\"pending\",\"notes\":\"Please call on arrival\",\"hours\":3,\"vehicle_class_id\":\"{{vehicle_class_id}}\",\"child_seats\":1}",
+              "raw": "{\"name\":\"HOURLY Passenger\",\"email\":\"hourly.passenger@example.com\",\"phone\":\"+8801600000000\",\"service_type\":\"hourly\",\"pickup_address\":\"Hazrat Shahjalal International Airport\",\"stops\":[{\"address\":\"Banani, Dhaka\"}],\"dropoff_address\":\"Gulshan 2, Dhaka\",\"pickup_time\":\"2026-12-15 10:00:00\",\"dropoff_time\":\"2026-12-15 13:00:00\",\"passengers\":2,\"bags\":2,\"extras_price\":10,\"parking\":5,\"airport_fees\":12,\"congestion_charge\":3,\"payment_method\":\"card\",\"payment_status\":\"pending\",\"status\":\"pending\",\"notes\":\"Please call on arrival\",\"hours\":3,\"vehicle_class_id\":\"{{vehicle_class_id}}\",\"child_seats\":1}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1658,7 +1658,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"name\":\"AIRPORT Passenger\",\"email\":\"airport.passenger@example.com\",\"phone\":\"+8801600000000\",\"service_type\":\"airport\",\"airport_id\":\"{{airport_id}}\",\"pickup_address\":\"JFK Airport\",\"dropoff_address\":\"Manhattan\",\"pickup_time\":\"2026-12-15 10:00:00\",\"dropoff_time\":\"2026-12-15 13:00:00\",\"passengers\":2,\"bags\":2,\"extra_stops\":1,\"distance_km\":25,\"flight_number\":\"BG-123\",\"airlines\":\"Biman Bangladesh\",\"child_seats\":1}",
+              "raw": "{\"name\":\"AIRPORT Passenger\",\"email\":\"airport.passenger@example.com\",\"phone\":\"+8801600000000\",\"service_type\":\"airport\",\"airport_id\":\"{{airport_id}}\",\"pickup_address\":\"JFK Airport\",\"stops\":[{\"address\":\"Brooklyn, New York\"}],\"dropoff_address\":\"Manhattan\",\"pickup_time\":\"2026-12-15 10:00:00\",\"dropoff_time\":\"2026-12-15 13:00:00\",\"passengers\":2,\"bags\":2,\"flight_number\":\"BG-123\",\"airlines\":\"Biman Bangladesh\",\"child_seats\":1}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1683,7 +1683,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"name\":\"AIRPORT Passenger\",\"email\":\"airport.passenger@example.com\",\"phone\":\"+8801600000000\",\"service_type\":\"airport\",\"airport_id\":\"{{airport_id}}\",\"pickup_address\":\"JFK Airport\",\"dropoff_address\":\"Manhattan\",\"pickup_time\":\"2026-12-15 10:00:00\",\"dropoff_time\":\"2026-12-15 13:00:00\",\"passengers\":2,\"bags\":2,\"extra_stops\":1,\"distance_km\":25,\"flight_number\":\"BG-123\",\"airlines\":\"Biman Bangladesh\",\"vehicle_class_id\":\"{{vehicle_class_id}}\",\"child_seats\":1}",
+              "raw": "{\"name\":\"AIRPORT Passenger\",\"email\":\"airport.passenger@example.com\",\"phone\":\"+8801600000000\",\"service_type\":\"airport\",\"airport_id\":\"{{airport_id}}\",\"pickup_address\":\"JFK Airport\",\"stops\":[{\"address\":\"Brooklyn, New York\"}],\"dropoff_address\":\"Manhattan\",\"pickup_time\":\"2026-12-15 10:00:00\",\"dropoff_time\":\"2026-12-15 13:00:00\",\"passengers\":2,\"bags\":2,\"flight_number\":\"BG-123\",\"airlines\":\"Biman Bangladesh\",\"vehicle_class_id\":\"{{vehicle_class_id}}\",\"child_seats\":1}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1708,7 +1708,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"name\":\"CUSTOM Passenger\",\"email\":\"custom.passenger@example.com\",\"phone\":\"+8801600000000\",\"service_type\":\"custom\",\"pickup_address\":\"Hazrat Shahjalal International Airport\",\"dropoff_address\":\"Gulshan 2, Dhaka\",\"pickup_time\":\"2026-12-15 10:00:00\",\"dropoff_time\":\"2026-12-15 13:00:00\",\"passengers\":2,\"bags\":2,\"extras_price\":10,\"parking\":5,\"airport_fees\":12,\"congestion_charge\":3,\"payment_method\":\"card\",\"payment_status\":\"pending\",\"status\":\"pending\",\"notes\":\"Please call on arrival\",\"distance_km\":12,\"child_seats\":1}",
+              "raw": "{\"name\":\"CUSTOM Passenger\",\"email\":\"custom.passenger@example.com\",\"phone\":\"+8801600000000\",\"service_type\":\"custom\",\"pickup_address\":\"Hazrat Shahjalal International Airport\",\"stops\":[{\"address\":\"Banani, Dhaka\"}],\"dropoff_address\":\"Gulshan 2, Dhaka\",\"pickup_time\":\"2026-12-15 10:00:00\",\"dropoff_time\":\"2026-12-15 13:00:00\",\"passengers\":2,\"bags\":2,\"extras_price\":10,\"parking\":5,\"airport_fees\":12,\"congestion_charge\":3,\"payment_method\":\"card\",\"payment_status\":\"pending\",\"status\":\"pending\",\"notes\":\"Please call on arrival\",\"distance_km\":12,\"child_seats\":1}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1733,7 +1733,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"name\":\"CUSTOM Passenger\",\"email\":\"custom.passenger@example.com\",\"phone\":\"+8801600000000\",\"service_type\":\"custom\",\"pickup_address\":\"Hazrat Shahjalal International Airport\",\"dropoff_address\":\"Gulshan 2, Dhaka\",\"pickup_time\":\"2026-12-15 10:00:00\",\"dropoff_time\":\"2026-12-15 13:00:00\",\"passengers\":2,\"bags\":2,\"extras_price\":10,\"parking\":5,\"airport_fees\":12,\"congestion_charge\":3,\"payment_method\":\"card\",\"payment_status\":\"pending\",\"status\":\"pending\",\"notes\":\"Please call on arrival\",\"distance_km\":12,\"vehicle_class_id\":\"{{vehicle_class_id}}\",\"child_seats\":1}",
+              "raw": "{\"name\":\"CUSTOM Passenger\",\"email\":\"custom.passenger@example.com\",\"phone\":\"+8801600000000\",\"service_type\":\"custom\",\"pickup_address\":\"Hazrat Shahjalal International Airport\",\"stops\":[{\"address\":\"Banani, Dhaka\"}],\"dropoff_address\":\"Gulshan 2, Dhaka\",\"pickup_time\":\"2026-12-15 10:00:00\",\"dropoff_time\":\"2026-12-15 13:00:00\",\"passengers\":2,\"bags\":2,\"extras_price\":10,\"parking\":5,\"airport_fees\":12,\"congestion_charge\":3,\"payment_method\":\"card\",\"payment_status\":\"pending\",\"status\":\"pending\",\"notes\":\"Please call on arrival\",\"distance_km\":12,\"vehicle_class_id\":\"{{vehicle_class_id}}\",\"child_seats\":1}",
               "options": {
                 "raw": {
                   "language": "json"

@@ -26,7 +26,13 @@ class ConfigurablePricingRulesTest extends TestCase
             ['payload' => ['service_type' => 'hourly', 'hours' => 2, 'pickup_time' => '2026-09-18 10:00:00'], 'method' => 'peak_hourly', 'fare' => 240, 'total' => 240],
             ['payload' => ['service_type' => 'airport', 'airport_id' => $airport->id], 'method' => 'airport_flat_rate', 'fare' => 150, 'total' => 150],
             [
-                'payload' => ['service_type' => 'custom', 'distance_km' => 10, 'extra_stops' => 2, 'waiting_minutes' => 30, 'tolls' => 10],
+                'payload' => [
+                    'service_type' => 'custom',
+                    'distance_km' => 10,
+                    'stops' => [['address' => 'First stop'], ['address' => 'Second stop']],
+                    'waiting_minutes' => 30,
+                    'tolls' => 10,
+                ],
                 'method' => 'distance',
                 'fare' => 40,
                 'total' => 160,
@@ -52,6 +58,36 @@ class ConfigurablePricingRulesTest extends TestCase
                 ->assertJsonPath('data.vehicle_class_options.0.total_price', $case['total']);
             $this->assertEquals($case['total'] * 1.2, $response->json('data.vehicle_class_options.0.calculation.authorization_amount'));
         }
+    }
+
+    public function test_booking_persists_ordered_middle_stops_and_derives_the_charge(): void
+    {
+        [$vehicleClass] = $this->pricingSetup();
+
+        $response = $this->postJson('/api/bookings', [
+            'name' => 'Stops Customer',
+            'email' => 'stops@example.com',
+            'vehicle_class_id' => $vehicleClass->id,
+            'service_type' => 'point_to_point',
+            'pickup_address' => 'Pickup address',
+            'stops' => [
+                ['address' => 'First middle address'],
+                ['address' => 'Second middle address'],
+            ],
+            'dropoff_address' => 'Drop-off address',
+            'pickup_time' => '2026-09-16 10:00:00',
+            'passengers' => 2,
+            'bags' => 1,
+            'distance_km' => 10,
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.extra_stops', 2)
+            ->assertJsonPath('data.extra_stop_amount', 80)
+            ->assertJsonPath('data.stops.0.address', 'First middle address')
+            ->assertJsonPath('data.stops.0.position', 1)
+            ->assertJsonPath('data.stops.1.address', 'Second middle address')
+            ->assertJsonPath('data.stops.1.position', 2);
     }
 
     private function pricingSetup(): array

@@ -66,6 +66,13 @@
             <strong>{{ \Carbon\Carbon::parse($booking->pickup_time)->format('M d, g:i A') }}</strong>
             <p>{{ $booking->pickup_address }}</p>
         </div>
+        @foreach ($booking->stops as $stop)
+            <div class="trip-row">
+                <span class="dot"></span>
+                <strong>Stop {{ $stop->position }}</strong>
+                <p>{{ $stop->address }}</p>
+            </div>
+        @endforeach
         @if ($booking->dropoff_address)
             <div class="trip-row">
                 <span class="dot"></span>
