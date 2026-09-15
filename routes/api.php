@@ -4,6 +4,7 @@ use App\Http\Controllers\VehicleClassController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\AffiliateclickController;
 use App\Http\Controllers\AffiliateController;
+use App\Http\Controllers\AirportController;
 use App\Http\Controllers\AffiliateDriverController;
 use App\Http\Controllers\FormsubmissionController;
 use App\Http\Controllers\FormtemplateController;
@@ -52,6 +53,11 @@ Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('/vehicl
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('/vehicle-classes/{id}', [VehicleClassController::class, 'show']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('/vehicle-classes/update/{id}', [VehicleClassController::class, 'update']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->delete('/vehicle-classes/{id}', [VehicleClassController::class, 'destroy']);
+
+Route::get('/airports', [AirportController::class, 'index']);
+Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('/airports', [AirportController::class, 'store']);
+Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('/airports/update/{id}', [AirportController::class, 'update']);
+Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->delete('/airports/{id}', [AirportController::class, 'destroy']);
 
 // Authenticated Vehicle Routes
 Route::get('/vehicles', [VehicleController::class, 'index']);
@@ -117,6 +123,7 @@ Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('booking
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('bookings/{id}/assign-driver', [BookingController::class, 'assignDriver']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('bookings/{id}/assign-affiliate', [BookingController::class, 'assignAffiliate']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('bookings/{id}/update-status', [BookingController::class, 'updateStatusOnly']);
+Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('bookings/{id}/finalize', [BookingController::class, 'finalize']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('bookings/{id}/cancel', [BookingController::class, 'cancelBooking']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->delete('bookings/{id}', [BookingController::class, 'destroy']);
 

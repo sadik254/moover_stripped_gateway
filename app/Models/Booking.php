@@ -17,6 +17,7 @@ class Booking extends Model
         'email',
         'phone',
         'vehicle_class_id',
+        'airport_id',
         'driver_id',
         'affiliate_id',
         'assigned_affiliate_driver_id',
@@ -32,6 +33,12 @@ class Booking extends Model
         'airlines',
         'distance_km',
         'hours',
+        'extra_stops',
+        'waiting_minutes',
+        'tolls',
+        'extra_stop_amount',
+        'waiting_time_amount',
+        'pricing_method',
         'base_price',
         'extras_price',
         'total_price',
@@ -75,6 +82,11 @@ class Booking extends Model
     public function vehicleClass()
     {
         return $this->belongsTo(VehicleClass::class);
+    }
+
+    public function airport()
+    {
+        return $this->belongsTo(Airport::class);
     }
 
     public function driver()

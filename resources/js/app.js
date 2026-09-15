@@ -43,10 +43,12 @@ const field = (name, label, type = 'text', options = {}) => ({ name, label, type
 const formDefinitions = {
     customer: [field('name', 'Full name', 'text', { required: true }), field('email', 'Email', 'email', { required: true }), field('phone', 'Phone', 'text', { required: true }), field('customer_company', 'Company'), field('customer_type', 'Customer type', 'select', { choices: ['individual', 'corporate'] }), field('preferred_service_level', 'Service level'), field('dispatch_note', 'Dispatch note', 'textarea')],
     driver: [field('name', 'Full name', 'text', { required: true }), field('email', 'Email', 'email', { required: true }), field('phone', 'Phone', 'text', { required: true }), field('vehicle_id', 'Fleet vehicle', 'select', { lookup: 'vehicles' }), field('license_number', 'License number', 'text', { required: true }), field('license_expiry', 'License expiry', 'date'), field('status', 'Status', 'select', { choices: ['online', 'offline', 'pending', 'inactive'] }), field('available', 'Available', 'checkbox')],
-    'vehicle-class': [field('name', 'Class name', 'text', { required: true }), field('description', 'Description', 'textarea'), field('capacity', 'Passenger capacity', 'number', { required: true, min: 1 }), field('luggage', 'Luggage capacity', 'number', { required: true, min: 0 }), field('hourly_rate', 'Hourly rate', 'number', { step: '0.01' }), field('per_km_rate', 'Per-km rate', 'number', { step: '0.01' }), field('airport_rate', 'Airport rate', 'number', { step: '0.01' })],
+    'vehicle-class': [field('name', 'Class name', 'text', { required: true }), field('description', 'Description', 'textarea'), field('capacity', 'Passenger capacity', 'number', { required: true, min: 1 }), field('luggage', 'Luggage capacity', 'number', { required: true, min: 0 }), field('hourly_rate', 'Hourly rate', 'number', { step: '0.01' }), field('peak_hourly_rate', 'Peak hourly rate', 'number', { step: '0.01' }), field('point_to_point_rate', 'Short point-to-point rate', 'number', { step: '0.01' }), field('per_km_rate', 'Long-distance rate per km', 'number', { step: '0.01' }), field('extra_stop_eligible', 'Apply extra-stop fee', 'checkbox')],
     vehicle: [field('vehicle_class_id', 'Vehicle class', 'select', { lookup: 'vehicle-classes', required: true }), field('name', 'Vehicle name', 'text', { required: true }), field('category', 'Category'), field('plate_number', 'Plate number'), field('color', 'Color'), field('model', 'Model'), field('status', 'Status', 'select', { choices: ['active', 'inactive', 'maintenance'] })],
     affiliate: [field('name', 'Affiliate name', 'text', { required: true }), field('email', 'Email', 'email', { required: true }), field('phone', 'Phone'), field('address', 'Address', 'textarea'), field('status', 'Status', 'select', { choices: ['active', 'inactive'] }), field('payout_mode', 'Payout mode', 'select', { choices: ['percentage'] }), field('affiliate_payout_percent', 'Affiliate payout %', 'number', { step: '0.01' }), field('platform_commission_percent', 'Platform commission %', 'number', { step: '0.01' }), field('stripe_connect_account_id', 'Stripe Connect account'), field('payout_currency', 'Currency', 'text', { value: 'usd' })],
-    booking: [field('name', 'Passenger name', 'text', { required: true }), field('email', 'Email', 'email', { required: true }), field('phone', 'Phone'), field('service_type', 'Service type', 'select', { choices: ['point_to_point', 'hourly', 'airport', 'custom'], required: true }), field('pickup_address', 'Pickup address', 'textarea', { required: true }), field('dropoff_address', 'Drop-off address', 'textarea'), field('pickup_time', 'Pickup time', 'datetime-local', { required: true }), field('dropoff_time', 'Drop-off time', 'datetime-local'), field('passengers', 'Passengers', 'number', { required: true, min: 1, value: 1 }), field('child_seats', 'Children / child seats', 'number', { min: 0, value: 0 }), field('bags', 'Bags', 'number', { min: 0, value: 0 }), field('distance_km', 'Distance (km)', 'number', { step: '0.01' }), field('hours', 'Hours', 'number', { step: '0.25' }), field('flight_number', 'Flight number'), field('airlines', 'Airline'), field('notes', 'Notes', 'textarea')],
+    booking: [field('name', 'Passenger name', 'text', { required: true }), field('email', 'Email', 'email', { required: true }), field('phone', 'Phone'), field('service_type', 'Service type', 'select', { choices: ['point_to_point', 'hourly', 'airport', 'custom'], required: true }), field('airport_id', 'Airport (airport bookings)', 'select', { lookup: 'airports' }), field('pickup_address', 'Pickup address', 'textarea', { required: true }), field('dropoff_address', 'Drop-off address', 'textarea'), field('pickup_time', 'Pickup time', 'datetime-local', { required: true }), field('dropoff_time', 'Drop-off time', 'datetime-local'), field('passengers', 'Passengers', 'number', { required: true, min: 1, value: 1 }), field('child_seats', 'Children / child seats', 'number', { min: 0, value: 0 }), field('bags', 'Bags', 'number', { min: 0, value: 0 }), field('distance_km', 'Distance (km)', 'number', { step: '0.01' }), field('hours', 'Hours', 'number', { step: '0.25' }), field('extra_stops', 'Extra stops', 'number', { min: 0, value: 0 }), field('flight_number', 'Flight number'), field('airlines', 'Airline'), field('notes', 'Notes', 'textarea')],
+    finalization: [field('extras_price', 'Extras', 'number', { min: 0, step: '0.01' }), field('extra_stops', 'Extra stops', 'number', { min: 0 }), field('waiting_minutes', 'Waiting minutes', 'number', { min: 0, step: '0.01' }), field('tolls', 'Tolls', 'number', { min: 0, step: '0.01' }), field('parking', 'Parking', 'number', { min: 0, step: '0.01' }), field('others', 'Other charges', 'number', { min: 0, step: '0.01' }), field('airport_fees', 'Airport fees', 'number', { min: 0, step: '0.01' }), field('congestion_charge', 'Congestion charge', 'number', { min: 0, step: '0.01' })],
+    airport: [field('code', 'Airport code', 'text', { required: true }), field('name', 'Airport name', 'text', { required: true }), field('active', 'Active', 'checkbox')],
 };
 
 const bookingEditFields = [
@@ -60,16 +62,18 @@ const resourceConfig = {
     bookings: { endpoint: '/bookings', columns: ['ID', 'Passenger', 'Service', 'Vehicle class', 'Pickup', 'Total', 'Status', 'Actions'] },
     customers: { endpoint: '/customers?per_page=100', columns: ['ID', 'Customer', 'Phone', 'Type', 'Company', 'Actions'] },
     drivers: { endpoint: '/drivers?per_page=100', columns: ['ID', 'Driver', 'Phone', 'Vehicle', 'Availability', 'Status', 'Actions'] },
-    'vehicle-classes': { endpoint: '/vehicle-classes', columns: ['ID', 'Class', 'Capacity', 'Luggage', 'Hourly', 'Per km', 'Airport', 'Actions'] },
+    'vehicle-classes': { endpoint: '/vehicle-classes', columns: ['ID', 'Class', 'Capacity', 'Hourly', 'Peak', 'Short trip', 'Per km', 'Airport rates', 'Actions'] },
     vehicles: { endpoint: '/vehicles', columns: ['ID', 'Vehicle', 'Class', 'Plate', 'Status', 'Actions'] },
     affiliates: { endpoint: '/affiliates?per_page=100', columns: ['ID', 'Affiliate', 'Phone', 'Payout', 'Stripe', 'Status'] },
+    airports: { endpoint: '/airports', columns: ['ID', 'Code', 'Airport', 'Status', 'Actions'] },
 };
 
 const resourceType = (view) => view === 'vehicle-classes' ? 'vehicle-class' : view.replace(/s$/, '');
 const endpointFor = (type, id = null) => {
-    const map = { customer: '/customers', driver: '/drivers', 'vehicle-class': '/vehicle-classes', vehicle: '/vehicles', affiliate: '/affiliates' };
+    const map = { customer: '/customers', driver: '/drivers', 'vehicle-class': '/vehicle-classes', vehicle: '/vehicles', affiliate: '/affiliates', airport: '/airports' };
     if (!id) return map[type];
-    return type === 'vehicle-class' ? `/vehicle-classes/update/${id}` : `/${type}s/update/${id}`;
+    if (type === 'vehicle-class') return `/vehicle-classes/update/${id}`;
+    return `/${type}s/update/${id}`;
 };
 
 const renderFields = (container, definitions, values = {}) => {
@@ -102,17 +106,28 @@ const formPayload = (form, definitions) => {
     }));
 };
 
+const vehicleClassFields = () => [
+    ...formDefinitions['vehicle-class'],
+    ...(state.lookups.airports || []).map((airport) => field(`airport_rate_${airport.id}`, `${airport.code} flat rate`, 'number', { min: 0, step: '0.01' })),
+];
+
+const vehicleClassValues = (record = {}) => ({
+    ...record,
+    ...(record.airport_rates || []).reduce((values, rate) => ({ ...values, [`airport_rate_${rate.airport_id}`]: rate.rate }), {}),
+});
+
 const renderRows = (view, rows) => {
     const body = document.querySelector(`[data-body="${view}"]`);
     const head = document.querySelector(`[data-head="${view}"]`);
     head.innerHTML = `<tr>${resourceConfig[view].columns.map((column) => `<th>${column}</th>`).join('')}</tr>`;
     const renderers = {
-        bookings: (row) => `<td>#${row.id}</td><td><strong>${esc(row.name || row.customer?.name || 'Guest')}</strong><small>${esc(row.email || row.customer?.email || '')}</small></td><td>${esc(human(row.service_type))}</td><td>${esc(row.vehicle_class?.name || '—')}</td><td>${esc(dateTime(row.pickup_time))}</td><td>${esc(money(row.final_price || row.total_price))}</td><td><span class="status-pill status-pill--${esc(row.status)}">${esc(human(row.status))}</span></td><td><div class="row-actions"><button data-edit="booking" data-id="${row.id}">Edit</button><button data-booking-status="${row.id}">Status</button></div></td>`,
+        bookings: (row) => `<td>#${row.id}</td><td><strong>${esc(row.name || row.customer?.name || 'Guest')}</strong><small>${esc(row.email || row.customer?.email || '')}</small></td><td>${esc(human(row.service_type))}</td><td>${esc(row.vehicle_class?.name || '—')}</td><td>${esc(dateTime(row.pickup_time))}</td><td>${esc(money(row.final_price || row.total_price))}</td><td><span class="status-pill status-pill--${esc(row.status)}">${esc(human(row.status))}</span></td><td><div class="row-actions"><button data-edit="booking" data-id="${row.id}">Edit</button><button data-booking-status="${row.id}">Status</button>${row.status === 'done' ? `<button data-finalize="${row.id}">Finalize</button>` : ''}${row.status === 'completed' && ['authorized', 'requires_capture'].includes(row.payment_status) ? `<button data-capture="${row.id}">Capture</button>` : ''}</div></td>`,
         customers: (row) => `<td>#${row.id}</td><td><strong>${esc(row.name)}</strong><small>${esc(row.email)}</small></td><td>${esc(row.phone || '—')}</td><td>${esc(human(row.customer_type || 'individual'))}</td><td>${esc(row.customer_company || '—')}</td><td><button data-edit="customer" data-id="${row.id}">Edit</button></td>`,
         drivers: (row) => `<td>#${row.id}</td><td><strong>${esc(row.name)}</strong><small>${esc(row.email)}</small></td><td>${esc(row.phone || '—')}</td><td>${esc(row.vehicle?.name || 'Unassigned')}</td><td>${row.available ? '<span class="status-pill">Available</span>' : '<span class="status-pill status-pill--cancelled">Busy</span>'}</td><td>${esc(human(row.status || 'active'))}</td><td><button data-edit="driver" data-id="${row.id}">Edit</button></td>`,
-        'vehicle-classes': (row) => `<td>#${row.id}</td><td><strong>${esc(row.name)}</strong><small>${esc(row.description || '')}</small></td><td>${esc(row.capacity)}</td><td>${esc(row.luggage)}</td><td>${esc(money(row.hourly_rate))}</td><td>${esc(money(row.per_km_rate))}</td><td>${esc(money(row.airport_rate))}</td><td><button data-edit="vehicle-class" data-id="${row.id}">Edit</button></td>`,
+        'vehicle-classes': (row) => `<td>#${row.id}</td><td><strong>${esc(row.name)}</strong><small>${esc(row.description || '')}</small></td><td>${esc(row.capacity)} people · ${esc(row.luggage)} bags</td><td>${esc(money(row.hourly_rate))}</td><td>${row.peak_hourly_rate === null ? '—' : esc(money(row.peak_hourly_rate))}</td><td>${row.point_to_point_rate === null ? '—' : esc(money(row.point_to_point_rate))}</td><td>${esc(money(row.per_km_rate))}</td><td>${esc((row.airport_rates || []).length)}</td><td><button data-edit="vehicle-class" data-id="${row.id}">Edit</button></td>`,
         vehicles: (row) => `<td>#${row.id}</td><td><strong>${esc(row.name)}</strong><small>${esc([row.color, row.model].filter(Boolean).join(' · '))}</small></td><td>${esc(row.vehicle_class?.name || '—')}</td><td>${esc(row.plate_number || '—')}</td><td>${esc(human(row.status || 'active'))}</td><td><button data-edit="vehicle" data-id="${row.id}">Edit</button></td>`,
         affiliates: (row) => `<td>#${row.id}</td><td><strong>${esc(row.name)}</strong><small>${esc(row.email)}</small></td><td>${esc(row.phone)}</td><td>${esc(row.affiliate_payout_percent || 0)}%</td><td>${esc(row.stripe_connect_account_id || 'Not connected')}</td><td>${esc(human(row.status || 'active'))}</td>`,
+        airports: (row) => `<td>#${row.id}</td><td><strong>${esc(row.code)}</strong></td><td>${esc(row.name)}</td><td><span class="status-pill">${row.active ? 'Active' : 'Inactive'}</span></td><td><button data-edit="airport" data-id="${row.id}">Edit</button></td>`,
     };
     body.innerHTML = rows.length ? rows.map((row) => `<tr>${renderers[view](row)}</tr>`).join('') : `<tr><td colspan="${resourceConfig[view].columns.length}" class="empty-state">No records found.</td></tr>`;
 };
@@ -157,7 +172,7 @@ const loadOverview = async () => {
 };
 
 const loadLookups = async () => {
-    const entries = [['vehicle-classes', '/vehicle-classes'], ['vehicles', '/vehicles'], ['drivers', '/drivers?per_page=100'], ['affiliates', '/affiliates?per_page=100']];
+    const entries = [['vehicle-classes', '/vehicle-classes'], ['vehicles', '/vehicles'], ['drivers', '/drivers?per_page=100'], ['affiliates', '/affiliates?per_page=100'], ['airports', '/airports']];
     await Promise.all(entries.map(async ([key, endpoint]) => {
         try { state.lookups[key] = apiData(await request(`${document.body.dataset.apiBase}${endpoint}`, state.token)); } catch (_) { state.lookups[key] = []; }
     }));
@@ -186,7 +201,8 @@ const openDialog = async (type, record = null) => {
     setText('dialog-title', `${record ? 'Edit' : 'New'} ${human(type)}`);
     setText('dialog-submit', type === 'booking' ? 'Get vehicle-class quote' : (record ? 'Save changes' : 'Create'));
     const fields = document.getElementById('resource-form-fields');
-    renderFields(fields, type === 'booking' && record ? bookingEditFields : formDefinitions[type], record || {});
+    const definitions = type === 'vehicle-class' ? vehicleClassFields() : (type === 'booking' && record ? bookingEditFields : formDefinitions[type]);
+    renderFields(fields, definitions, type === 'vehicle-class' ? vehicleClassValues(record || {}) : (record || {}));
     document.getElementById('booking-quote-options').hidden = true;
     document.getElementById('dialog-error').hidden = true;
     document.getElementById('resource-dialog').showModal();
@@ -195,19 +211,30 @@ const openDialog = async (type, record = null) => {
 const showBookingQuote = (options) => {
     const container = document.getElementById('booking-quote-options');
     container.hidden = false;
-    container.innerHTML = `<p class="eyebrow">Select a vehicle class</p>${options.map((option, index) => `<label class="quote-card"><input type="radio" name="quoted_vehicle_class_id" value="${option.vehicle_class_id}" ${index === 0 ? 'checked' : ''}><span><strong>${esc(option.name)}</strong><small>${esc(option.capacity)} passengers · ${esc(option.luggage)} bags</small></span><b>${esc(money(option.total_price))}</b></label>`).join('')}`;
+    container.innerHTML = `<p class="eyebrow">Select a vehicle class</p>${options.map((option, index) => `<label class="quote-card"><input type="radio" name="quoted_vehicle_class_id" value="${option.vehicle_class_id}" ${index === 0 ? 'checked' : ''}><span><strong>${esc(option.name)}</strong><small>${esc(option.capacity)} passengers · ${esc(option.luggage)} bags</small><small>${esc(human(option.pricing_method))} · fare ${esc(money(option.total_price))}</small></span><b><small>Temporary hold</small>${esc(money(option.calculation?.authorization_amount))}</b></label>`).join('')}`;
     setText('dialog-submit', 'Create booking');
 };
 
 const submitResourceForm = async (event) => {
     event.preventDefault();
     const { type, id } = state.editing;
-    const definitions = type === 'booking' && id ? bookingEditFields : formDefinitions[type];
+    const definitions = type === 'vehicle-class' ? vehicleClassFields() : (type === 'booking' && id ? bookingEditFields : formDefinitions[type]);
     const payload = formPayload(event.currentTarget, definitions);
     Object.keys(payload).forEach((key) => payload[key] === null && delete payload[key]);
+    if (type === 'vehicle-class') {
+        payload.airport_rates = (state.lookups.airports || []).filter((airport) => payload[`airport_rate_${airport.id}`] !== undefined).map((airport) => ({ airport_id: airport.id, service_zone: 'Manhattan', rate: payload[`airport_rate_${airport.id}`] }));
+        (state.lookups.airports || []).forEach((airport) => delete payload[`airport_rate_${airport.id}`]);
+    }
     const errorBox = document.getElementById('dialog-error');
     errorBox.hidden = true;
     try {
+        if (type === 'finalization') {
+            const result = await request(`${document.body.dataset.apiBase}/bookings/${id}/finalize`, state.token, jsonOptions(payload));
+            document.getElementById('resource-dialog').close();
+            notify(`Booking finalized at ${money(result.data?.final_price)}. It is ready to capture.`);
+            await showView('bookings');
+            return;
+        }
         if (type === 'booking') {
             if (id) {
                 await request(`${document.body.dataset.apiBase}/bookings/update/${id}`, state.token, jsonOptions(payload));
@@ -250,12 +277,13 @@ const loadFinance = async () => {
 };
 
 const companyFields = [field('name', 'Company name'), field('email', 'Email', 'email'), field('phone', 'Phone'), field('address', 'Address', 'textarea'), field('timezone', 'Timezone'), field('url', 'Website')];
-const systemFields = [field('platform_name', 'Platform name'), field('currency', 'Currency'), field('base_price_flat', 'Base price', 'number', { step: '0.01' }), field('tax_rate', 'Tax rate %', 'number', { step: '0.01' }), field('gratuity_percentage', 'Gratuity %', 'number', { step: '0.01' }), field('rate_buffer', 'Authorization buffer %', 'number', { step: '0.01' }), field('surge_rate', 'Surge rate %', 'number', { step: '0.01' }), field('cancellation_fee', 'Cancellation fee', 'number', { step: '0.01' }), field('wait_time_rate', 'Wait-time rate', 'number', { step: '0.01' }), field('primary_brand_color', 'Primary color'), field('secondary_brand_color', 'Secondary color')];
+const systemFields = [field('platform_name', 'Platform name'), field('currency', 'Currency'), field('base_price_flat', 'Base price', 'number', { step: '0.01' }), field('tax_rate', 'Tax rate %', 'number', { step: '0.01' }), field('gratuity_percentage', 'Gratuity %', 'number', { step: '0.01' }), field('rate_buffer', 'Authorization buffer %', 'number', { step: '0.01' }), field('surge_rate', 'Surge rate %', 'number', { step: '0.01' }), field('cancellation_fee', 'Cancellation fee', 'number', { step: '0.01' }), field('wait_time_rate', 'Wait-time hourly rate', 'number', { step: '0.01' }), field('waiting_grace_minutes', 'Waiting grace minutes', 'number', { min: 0 }), field('extra_stop_fee', 'Extra-stop fee', 'number', { step: '0.01' }), field('extra_stop_minutes', 'Minutes included per stop', 'number', { min: 0 }), field('short_distance_limit_km', 'Short-trip limit (km)', 'number', { step: '0.01' }), field('distance_rate_start_km', 'Distance-rate threshold (km)', 'number', { step: '0.01' }), field('point_to_point_minimum_hours', 'Point-to-point minimum hours', 'number', { step: '0.25' }), field('peak_days', 'Peak days (comma-separated)'), field('primary_brand_color', 'Primary color'), field('secondary_brand_color', 'Secondary color')];
 
 const loadSettings = async () => {
     const [companyPayload, systemPayload] = await Promise.all([request(`${document.body.dataset.apiBase}/company`, state.token), request(`${document.body.dataset.apiBase}/system-config`, state.token)]);
     const company = companyPayload.data || companyPayload;
-    const system = systemPayload.data || systemPayload;
+    const system = systemPayload.data?.config || systemPayload.data || systemPayload;
+    if (Array.isArray(system.peak_days)) system.peak_days = system.peak_days.join(', ');
     renderFields(document.getElementById('company-settings-fields'), companyFields, company || {});
     renderFields(document.getElementById('system-settings-fields'), systemFields, system || {});
 };
@@ -263,6 +291,7 @@ const loadSettings = async () => {
 const submitSettings = async (form, endpoint, definitions, label) => {
     const payload = formPayload(form, definitions);
     Object.keys(payload).forEach((key) => payload[key] === null && delete payload[key]);
+    if (endpoint === '/system-config/update' && typeof payload.peak_days === 'string') payload.peak_days = payload.peak_days.split(',').map((day) => day.trim().toLowerCase()).filter(Boolean);
     await request(`${document.body.dataset.apiBase}${endpoint}`, state.token, jsonOptions(payload));
     notify(`${label} saved successfully.`);
 };
@@ -307,6 +336,8 @@ const bootDashboard = async () => {
         const go = event.target.closest('[data-go]'); if (go) return showView(go.dataset.go);
         const create = event.target.closest('[data-create]'); if (create) return openDialog(create.dataset.create);
         const edit = event.target.closest('[data-edit]'); if (edit) { const view = edit.dataset.edit === 'vehicle-class' ? 'vehicle-classes' : `${edit.dataset.edit}s`; const record = (state.resources[view] || []).find((item) => String(item.id) === edit.dataset.id); return openDialog(edit.dataset.edit, record); }
+        const finalize = event.target.closest('[data-finalize]'); if (finalize) { const record = (state.resources.bookings || []).find((item) => String(item.id) === finalize.dataset.finalize); return openDialog('finalization', record); }
+        const capture = event.target.closest('[data-capture]'); if (capture && confirm('Capture the finalized amount from this authorization?')) { try { await request(`${page.dataset.apiBase}/bookings/${capture.dataset.capture}/payment/capture`, state.token, { method: 'POST' }); notify('Payment captured successfully.'); await loadResource('bookings'); } catch (error) { notify(error.message, true); } return; }
         const status = event.target.closest('[data-booking-status]'); if (status) { const value = prompt('New status: pending, confirmed, assigned, on_route, completed, cancelled or done'); if (value) { try { await request(`${page.dataset.apiBase}/bookings/${status.dataset.bookingStatus}/update-status`, state.token, jsonOptions({ status: value })); notify('Booking status updated.'); await loadResource('bookings'); } catch (error) { notify(error.message, true); } } }
         const disburse = event.target.closest('[data-disburse]'); if (disburse && confirm('Send this affiliate disbursement through Stripe?')) { try { await request(`${page.dataset.apiBase}/affiliate-settlements/${disburse.dataset.disburse}/disburse`, state.token, jsonOptions({})); notify('Disbursement processed.'); await loadFinance(); } catch (error) { notify(error.message, true); } }
     });

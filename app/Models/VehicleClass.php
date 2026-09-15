@@ -17,8 +17,11 @@ class VehicleClass extends Model
         'capacity',
         'luggage',
         'hourly_rate',
+        'peak_hourly_rate',
+        'point_to_point_rate',
         'per_km_rate',
         'airport_rate',
+        'extra_stop_eligible',
     ];
 
     public function company()
@@ -34,5 +37,10 @@ class VehicleClass extends Model
     public function bookings()
     {
         return $this->hasMany(Booking::class);
+    }
+
+    public function airportRates()
+    {
+        return $this->hasMany(VehicleClassAirportRate::class);
     }
 }

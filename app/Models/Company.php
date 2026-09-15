@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\SystemConfig;
 
 class Company extends Model
 {
@@ -18,28 +17,36 @@ class Company extends Model
         'timezone',
         'user_id',
         'logo',
-        'url'
+        'url',
     ];
 
-        public function user()
-        {
-            return $this->belongsTo(User::class);
-        }
-        public function vehicleClasses()
-        {
-            return $this->hasMany(VehicleClass::class);
-        }
-        public function vehicles()
-        {
-            return $this->hasMany(Vehicle::class);
-        }
-        public function drivers()
-        {
-            return $this->hasMany(Driver::class);
-        }
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 
-        public function systemConfig()
-        {
-            return $this->hasOne(SystemConfig::class);
-        }
+    public function vehicleClasses()
+    {
+        return $this->hasMany(VehicleClass::class);
+    }
+
+    public function airports()
+    {
+        return $this->hasMany(Airport::class);
+    }
+
+    public function vehicles()
+    {
+        return $this->hasMany(Vehicle::class);
+    }
+
+    public function drivers()
+    {
+        return $this->hasMany(Driver::class);
+    }
+
+    public function systemConfig()
+    {
+        return $this->hasOne(SystemConfig::class);
+    }
 }

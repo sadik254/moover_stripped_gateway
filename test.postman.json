@@ -61,6 +61,11 @@
       "type": "string"
     },
     {
+      "key": "airport_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
       "key": "settlement_id",
       "value": "1",
       "type": "string"
@@ -328,7 +333,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"tax_rate\":10,\"base_price_flat\":15,\"cancellation_fee\":25,\"surge_rate\":5,\"wait_time_rate\":1.5,\"rate_buffer\":3,\"gratuity_percentage\":10,\"currency\":\"usd\",\"service_zones\":[\"Dhaka\",\"Chattogram\"],\"platform_name\":\"Moover Test\",\"primary_brand_color\":\"#0F766E\",\"secondary_brand_color\":\"#F59E0B\"}",
+              "raw": "{\"tax_rate\":8.88,\"base_price_flat\":0,\"cancellation_fee\":25,\"surge_rate\":0,\"wait_time_rate\":90,\"rate_buffer\":20,\"gratuity_percentage\":20,\"currency\":\"usd\",\"service_zones\":[\"Manhattan\"],\"short_distance_limit_km\":16.09,\"distance_rate_start_km\":32.19,\"point_to_point_minimum_hours\":2,\"peak_days\":[\"friday\",\"saturday\"],\"extra_stop_fee\":40,\"extra_stop_minutes\":15,\"waiting_grace_minutes\":15,\"platform_name\":\"Moover Test\",\"primary_brand_color\":\"#0F766E\",\"secondary_brand_color\":\"#F59E0B\"}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -350,7 +355,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"tax_rate\":12,\"base_price_flat\":20,\"cancellation_fee\":30,\"surge_rate\":7.5,\"wait_time_rate\":2,\"rate_buffer\":4,\"gratuity_percentage\":12,\"currency\":\"usd\",\"platform_name\":\"Moover Operations\",\"service_zones\":[\"Dhaka\"]}",
+              "raw": "{\"tax_rate\":8.88,\"base_price_flat\":0,\"cancellation_fee\":30,\"surge_rate\":0,\"wait_time_rate\":90,\"rate_buffer\":20,\"gratuity_percentage\":20,\"currency\":\"usd\",\"platform_name\":\"Moover Operations\",\"service_zones\":[\"Manhattan\"],\"short_distance_limit_km\":16.09,\"distance_rate_start_km\":32.19,\"point_to_point_minimum_hours\":2,\"peak_days\":[\"friday\",\"saturday\"],\"extra_stop_fee\":40,\"extra_stop_minutes\":15,\"waiting_grace_minutes\":15}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -358,6 +363,54 @@
               }
             },
             "url": "{{api_url}}/system-config/update"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Airports",
+      "item": [
+        {
+          "name": "List Airports",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": "{{api_url}}/airports"
+          }
+        },
+        {
+          "name": "Create Airport",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"JFK\",\n  \"name\": \"John F. Kennedy International Airport\",\n  \"active\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{api_url}}/airports"
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["const data = pm.response.json().data; if (pm.response.code < 400 && data?.id) pm.collectionVariables.set('airport_id', data.id);"] } }]
+        },
+        {
+          "name": "Update Airport",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"JFK\",\n  \"name\": \"John F. Kennedy International Airport\",\n  \"active\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{api_url}}/airports/update/{{airport_id}}"
+          }
+        },
+        {
+          "name": "Delete Airport",
+          "disabled": true,
+          "request": {
+            "method": "DELETE",
+            "url": "{{api_url}}/airports/{{airport_id}}"
           }
         }
       ]
@@ -407,17 +460,42 @@
                 },
                 {
                   "key": "hourly_rate",
-                  "value": "40",
+                  "value": "90",
+                  "type": "text"
+                },
+                {
+                  "key": "peak_hourly_rate",
+                  "value": "110",
+                  "type": "text"
+                },
+                {
+                  "key": "point_to_point_rate",
+                  "value": "90",
                   "type": "text"
                 },
                 {
                   "key": "per_km_rate",
-                  "value": "3.50",
+                  "value": "2.49",
                   "type": "text"
                 },
                 {
-                  "key": "airport_rate",
-                  "value": "8",
+                  "key": "extra_stop_eligible",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "airport_rates[0][airport_id]",
+                  "value": "{{airport_id}}",
+                  "type": "text"
+                },
+                {
+                  "key": "airport_rates[0][service_zone]",
+                  "value": "Manhattan",
+                  "type": "text"
+                },
+                {
+                  "key": "airport_rates[0][rate]",
+                  "value": "150",
                   "type": "text"
                 }
               ]
@@ -477,17 +555,42 @@
                 },
                 {
                   "key": "hourly_rate",
-                  "value": "40",
+                  "value": "90",
+                  "type": "text"
+                },
+                {
+                  "key": "peak_hourly_rate",
+                  "value": "110",
+                  "type": "text"
+                },
+                {
+                  "key": "point_to_point_rate",
+                  "value": "90",
                   "type": "text"
                 },
                 {
                   "key": "per_km_rate",
-                  "value": "3.50",
+                  "value": "2.49",
                   "type": "text"
                 },
                 {
-                  "key": "airport_rate",
-                  "value": "8",
+                  "key": "extra_stop_eligible",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "airport_rates[0][airport_id]",
+                  "value": "{{airport_id}}",
+                  "type": "text"
+                },
+                {
+                  "key": "airport_rates[0][service_zone]",
+                  "value": "Manhattan",
+                  "type": "text"
+                },
+                {
+                  "key": "airport_rates[0][rate]",
+                  "value": "150",
                   "type": "text"
                 }
               ]
@@ -1419,6 +1522,28 @@
           }
         },
         {
+          "name": "Finalize Done Booking",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"extras_price\": 15,\n  \"extra_stops\": 1,\n  \"waiting_minutes\": 20,\n  \"tolls\": 12,\n  \"parking\": 10,\n  \"others\": 5,\n  \"airport_fees\": 0,\n  \"congestion_charge\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{api_url}}/bookings/{{booking_id}}/finalize"
+          }
+        },
+        {
           "name": "Cancel Booking",
           "request": {
             "method": "POST",
@@ -1533,7 +1658,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"name\":\"AIRPORT Passenger\",\"email\":\"airport.passenger@example.com\",\"phone\":\"+8801600000000\",\"service_type\":\"airport\",\"pickup_address\":\"Hazrat Shahjalal International Airport\",\"dropoff_address\":\"Gulshan 2, Dhaka\",\"pickup_time\":\"2026-12-15 10:00:00\",\"dropoff_time\":\"2026-12-15 13:00:00\",\"passengers\":2,\"bags\":2,\"extras_price\":10,\"parking\":5,\"airport_fees\":12,\"congestion_charge\":3,\"payment_method\":\"card\",\"payment_status\":\"pending\",\"status\":\"pending\",\"notes\":\"Please call on arrival\",\"distance_km\":25,\"flight_number\":\"BG-123\",\"airlines\":\"Biman Bangladesh\",\"child_seats\":1}",
+              "raw": "{\"name\":\"AIRPORT Passenger\",\"email\":\"airport.passenger@example.com\",\"phone\":\"+8801600000000\",\"service_type\":\"airport\",\"airport_id\":\"{{airport_id}}\",\"pickup_address\":\"JFK Airport\",\"dropoff_address\":\"Manhattan\",\"pickup_time\":\"2026-12-15 10:00:00\",\"dropoff_time\":\"2026-12-15 13:00:00\",\"passengers\":2,\"bags\":2,\"extra_stops\":1,\"distance_km\":25,\"flight_number\":\"BG-123\",\"airlines\":\"Biman Bangladesh\",\"child_seats\":1}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1558,7 +1683,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"name\":\"AIRPORT Passenger\",\"email\":\"airport.passenger@example.com\",\"phone\":\"+8801600000000\",\"service_type\":\"airport\",\"pickup_address\":\"Hazrat Shahjalal International Airport\",\"dropoff_address\":\"Gulshan 2, Dhaka\",\"pickup_time\":\"2026-12-15 10:00:00\",\"dropoff_time\":\"2026-12-15 13:00:00\",\"passengers\":2,\"bags\":2,\"extras_price\":10,\"parking\":5,\"airport_fees\":12,\"congestion_charge\":3,\"payment_method\":\"card\",\"payment_status\":\"pending\",\"status\":\"pending\",\"notes\":\"Please call on arrival\",\"distance_km\":25,\"flight_number\":\"BG-123\",\"airlines\":\"Biman Bangladesh\",\"vehicle_class_id\":\"{{vehicle_class_id}}\",\"child_seats\":1}",
+              "raw": "{\"name\":\"AIRPORT Passenger\",\"email\":\"airport.passenger@example.com\",\"phone\":\"+8801600000000\",\"service_type\":\"airport\",\"airport_id\":\"{{airport_id}}\",\"pickup_address\":\"JFK Airport\",\"dropoff_address\":\"Manhattan\",\"pickup_time\":\"2026-12-15 10:00:00\",\"dropoff_time\":\"2026-12-15 13:00:00\",\"passengers\":2,\"bags\":2,\"extra_stops\":1,\"distance_km\":25,\"flight_number\":\"BG-123\",\"airlines\":\"Biman Bangladesh\",\"vehicle_class_id\":\"{{vehicle_class_id}}\",\"child_seats\":1}",
               "options": {
                 "raw": {
                   "language": "json"

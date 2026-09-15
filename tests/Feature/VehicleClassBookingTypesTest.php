@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\Airport;
 use App\Models\Company;
 use App\Models\SystemConfig;
 use App\Models\User;
 use App\Models\VehicleClass;
+use App\Models\VehicleClassAirportRate;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
@@ -49,11 +51,22 @@ class VehicleClassBookingTypesTest extends TestCase
             'per_km_rate' => 2,
             'airport_rate' => 5,
         ]);
+        $airport = Airport::create([
+            'company_id' => $company->id,
+            'code' => 'JFK',
+            'name' => 'John F. Kennedy International Airport',
+        ]);
+        VehicleClassAirportRate::create([
+            'vehicle_class_id' => $vehicleClass->id,
+            'airport_id' => $airport->id,
+            'service_zone' => 'Manhattan',
+            'rate' => 50,
+        ]);
 
         $cases = [
             'point_to_point' => ['distance_km' => 10, 'rate' => 2, 'total' => 20],
             'custom' => ['distance_km' => 10, 'rate' => 2, 'total' => 20],
-            'airport' => ['distance_km' => 10, 'rate' => 5, 'total' => 50],
+            'airport' => ['distance_km' => 10, 'airport_id' => $airport->id, 'rate' => 50, 'total' => 50],
             'hourly' => ['hours' => 3, 'rate' => 10, 'total' => 30],
         ];
 
@@ -66,7 +79,7 @@ class VehicleClassBookingTypesTest extends TestCase
                 'pickup_time' => '2026-12-15 10:00:00',
                 'passengers' => 2,
                 'bags' => 2,
-            ] + array_intersect_key($expectation, array_flip(['distance_km', 'hours']));
+            ] + array_intersect_key($expectation, array_flip(['distance_km', 'hours', 'airport_id']));
 
             $this->postJson('/api/bookings', $payload)
                 ->assertOk()

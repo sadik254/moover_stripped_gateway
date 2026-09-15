@@ -190,8 +190,9 @@ class BookingPaymentController extends Controller
             ], 422);
         }
 
-        // Hard-coded 50% buffer for authorization hold.
-        $authorizedAmount = round($estimatedAmount * 1.5, 2);
+        $bufferRate = (float) ($config->rate_buffer ?? 0);
+        $bufferAmount = round($estimatedAmount * ($bufferRate / 100), 2);
+        $authorizedAmount = round($estimatedAmount + $bufferAmount, 2);
         $amountInCents = (int) round($authorizedAmount * 100);
 
         try {
@@ -226,6 +227,8 @@ class BookingPaymentController extends Controller
 
             $booking->payment_method = 'stripe';
             $booking->payment_status = $intent->status === 'requires_capture' ? 'authorized' : $intent->status;
+            $booking->rate_buffer = $bufferRate;
+            $booking->rate_buffer_amount = $bufferAmount;
             $booking->save();
 
             return response()->json([
@@ -234,6 +237,9 @@ class BookingPaymentController extends Controller
                     'booking_id' => $booking->id,
                     'payment' => $payment,
                     'payment_intent_status' => $intent->status,
+                    'estimated_amount' => $estimatedAmount,
+                    'rate_buffer_percent' => $bufferRate,
+                    'rate_buffer_amount' => $bufferAmount,
                     'authorized_amount' => $authorizedAmount,
                 ],
             ], 201);

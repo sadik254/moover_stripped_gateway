@@ -6,6 +6,7 @@ use App\Mail\BookingCreatedMail;
 use App\Models\Affiliate;
 use App\Models\AffiliateBookingSettlement;
 use App\Models\AffiliateDisbursement;
+use App\Models\Airport;
 use App\Models\Booking;
 use App\Models\BookingActivity;
 use App\Models\BookingPayment;
@@ -57,7 +58,7 @@ class BookingController extends Controller
             ], 422);
         }
 
-        $query = Booking::with(['driver:id,name', 'vehicleClass:id,name,capacity,luggage,image'])
+        $query = Booking::with(['driver:id,name', 'vehicleClass:id,name,capacity,luggage,image', 'airport:id,code,name'])
             ->where('company_id', $company->id);
 
         if ($request->filled('status')) {
@@ -98,7 +99,7 @@ class BookingController extends Controller
             ], 422);
         }
 
-        $query = Booking::with('vehicleClass:id,name,capacity,luggage,image')
+        $query = Booking::with(['vehicleClass:id,name,capacity,luggage,image', 'airport:id,code,name'])
             ->where('company_id', $company->id)
             ->where('customer_id', $authUser->id);
 
@@ -633,6 +634,7 @@ class BookingController extends Controller
             'email' => 'nullable|email|max:255',
             'phone' => 'nullable|string|max:50',
             'vehicle_class_id' => ['nullable', Rule::exists('vehicle_classes', 'id')->where('company_id', $company->id)],
+            'airport_id' => [Rule::requiredIf(fn () => $request->service_type === 'airport'), 'nullable', Rule::exists('airports', 'id')->where('company_id', $company->id)],
             'driver_id' => ['nullable', Rule::exists('drivers', 'id')],
             'service_type' => ['required', Rule::in(['point_to_point', 'hourly', 'airport', 'custom'])],
             'pickup_address' => 'required|string',
@@ -645,12 +647,15 @@ class BookingController extends Controller
             'flight_number' => 'nullable|string|max:100',
             'airlines' => 'nullable|string|max:100',
             'distance_km' => [
-                Rule::requiredIf(fn () => $request->service_type !== 'hourly'),
+                Rule::requiredIf(fn () => in_array($request->service_type, ['point_to_point', 'custom'], true)),
                 'numeric',
                 'min:0',
                 'nullable',
             ],
             'hours' => 'nullable|numeric|min:0',
+            'extra_stops' => 'nullable|integer|min:0',
+            'waiting_minutes' => 'nullable|numeric|min:0',
+            'tolls' => 'nullable|numeric|min:0',
             'extras_price' => 'nullable|numeric|min:0',
             'parking' => 'nullable|numeric|min:0',
             'others' => 'nullable|numeric|min:0',
@@ -703,7 +708,7 @@ class BookingController extends Controller
 
         $systemConfig = $this->getSystemConfig($company->id);
 
-        $vehicleClassOptions = VehicleClass::where('company_id', $company->id)
+        $vehicleClassOptions = VehicleClass::with('airportRates')->where('company_id', $company->id)
             ->orderBy('capacity')
             ->orderBy('luggage')
             ->orderBy('name')
@@ -729,7 +734,10 @@ class BookingController extends Controller
                     'calculation' => $this->buildCalculationBreakdown($priceCalculation),
                     'fits_passengers' => $fitsPassengers,
                     'fits_luggage' => $fitsLuggage,
-                    'recommended' => $fitsPassengers && $fitsLuggage,
+                    'pricing_method' => $priceCalculation['pricing_method'],
+                    'available' => $priceCalculation['available'],
+                    'unavailable_reason' => $priceCalculation['unavailable_reason'],
+                    'recommended' => $fitsPassengers && $fitsLuggage && $priceCalculation['available'],
                 ];
             })
             ->filter(fn (array $option): bool => $option['recommended'])
@@ -745,6 +753,7 @@ class BookingController extends Controller
                     'bags' => $bags,
                     'distance_km' => (float) ($request->distance_km ?? 0),
                     'hours' => (float) ($request->hours ?? 0),
+                    'airport' => $request->filled('airport_id') ? Airport::find($request->airport_id) : null,
                     'vehicle_class_options' => $vehicleClassOptions,
                 ],
             ]);
@@ -758,6 +767,11 @@ class BookingController extends Controller
             ], 404);
         }
 
+        $selectedCalculation = $this->calculatePrice($vehicleClass, $this->buildPriceInput($request, $systemConfig));
+        if (! $selectedCalculation['available']) {
+            return response()->json(['message' => $selectedCalculation['unavailable_reason']], 422);
+        }
+
         try {
             $booking = DB::transaction(function () use ($request, $company, $vehicleClass, $authUser) {
                 $systemConfig = $this->getSystemConfig($company->id);
@@ -769,6 +783,7 @@ class BookingController extends Controller
                     'email',
                     'phone',
                     'vehicle_class_id',
+                    'airport_id',
                     'driver_id',
                     'service_type',
                     'pickup_address',
@@ -782,6 +797,9 @@ class BookingController extends Controller
                     'airlines',
                     'distance_km',
                     'hours',
+                    'extra_stops',
+                    'waiting_minutes',
+                    'tolls',
                     'extras_price',
                     'parking',
                     'others',
@@ -795,6 +813,9 @@ class BookingController extends Controller
 
                 $data['company_id'] = $company->id;
                 $data['base_price'] = $priceCalculation['base_price'];
+                $data['extra_stop_amount'] = $priceCalculation['extra_stop_amount'];
+                $data['waiting_time_amount'] = $priceCalculation['waiting_time_amount'];
+                $data['pricing_method'] = $priceCalculation['pricing_method'];
                 $data['taxes'] = $priceCalculation['tax_rate'];
                 $data['taxes_amount'] = $priceCalculation['taxes_amount'];
                 $data['gratuity'] = $priceCalculation['gratuity_percentage'];
@@ -894,6 +915,7 @@ class BookingController extends Controller
         }
 
         $booking = Booking::where('company_id', $company->id)
+            ->with(['vehicleClass', 'airport', 'driver', 'customer'])
             ->where('id', $id)
             ->first();
 
@@ -994,6 +1016,7 @@ class BookingController extends Controller
             'email' => 'sometimes|nullable|email|max:255',
             'phone' => 'sometimes|nullable|string|max:50',
             'vehicle_class_id' => ['sometimes', Rule::exists('vehicle_classes', 'id')->where('company_id', $company->id)],
+            'airport_id' => ['sometimes', 'nullable', Rule::exists('airports', 'id')->where('company_id', $company->id)],
             'driver_id' => ['sometimes', 'nullable', Rule::exists('drivers', 'id')],
             'service_type' => ['sometimes', Rule::in(['point_to_point', 'hourly', 'airport', 'custom'])],
             'pickup_address' => 'sometimes|required|string',
@@ -1007,12 +1030,15 @@ class BookingController extends Controller
             'airlines' => 'sometimes|nullable|string|max:100',
             'distance_km' => [
                 'sometimes',
-                Rule::requiredIf(fn () => $request->input('service_type', $booking->service_type) !== 'hourly'),
+                Rule::requiredIf(fn () => in_array($request->input('service_type', $booking->service_type), ['point_to_point', 'custom'], true)),
                 'numeric',
                 'min:0',
                 'nullable',
             ],
             'hours' => 'sometimes|nullable|numeric|min:0',
+            'extra_stops' => 'sometimes|nullable|integer|min:0',
+            'waiting_minutes' => 'sometimes|nullable|numeric|min:0',
+            'tolls' => 'sometimes|nullable|numeric|min:0',
             'extras_price' => 'sometimes|nullable|numeric|min:0',
             'parking' => 'sometimes|nullable|numeric|min:0',
             'others' => 'sometimes|nullable|numeric|min:0',
@@ -1064,6 +1090,7 @@ class BookingController extends Controller
                         'email',
                         'phone',
                         'vehicle_class_id',
+                        'airport_id',
                         'driver_id',
                         'service_type',
                         'pickup_address',
@@ -1077,6 +1104,9 @@ class BookingController extends Controller
                         'airlines',
                         'distance_km',
                         'hours',
+                        'extra_stops',
+                        'waiting_minutes',
+                        'tolls',
                         'extras_price',
                         'parking',
                         'others',
@@ -1102,6 +1132,12 @@ class BookingController extends Controller
                     $booking->base_price = 0;
                     $booking->extras_price = 0;
                     $booking->parking = 0;
+                    $booking->tolls = 0;
+                    $booking->extra_stops = 0;
+                    $booking->extra_stop_amount = 0;
+                    $booking->waiting_minutes = 0;
+                    $booking->waiting_time_amount = 0;
+                    $booking->pricing_method = 'cancellation';
                     $booking->others = 0;
                     $booking->airport_fees = 0;
                     $booking->congestion_charge = 0;
@@ -1123,6 +1159,10 @@ class BookingController extends Controller
                     'service_type',
                     'distance_km',
                     'hours',
+                    'airport_id',
+                    'extra_stops',
+                    'waiting_minutes',
+                    'tolls',
                     'extras_price',
                     'parking',
                     'others',
@@ -1137,6 +1177,9 @@ class BookingController extends Controller
                     $priceCalculation = $this->calculatePrice($vehicleClass, $this->buildPriceInput($booking, $systemConfig));
 
                     $booking->base_price = $priceCalculation['base_price'];
+                    $booking->extra_stop_amount = $priceCalculation['extra_stop_amount'];
+                    $booking->waiting_time_amount = $priceCalculation['waiting_time_amount'];
+                    $booking->pricing_method = $priceCalculation['pricing_method'];
                     $booking->taxes = $priceCalculation['tax_rate'];
                     $booking->taxes_amount = $priceCalculation['taxes_amount'];
                     $booking->gratuity = $priceCalculation['gratuity_percentage'];
@@ -1408,6 +1451,135 @@ class BookingController extends Controller
         ]);
     }
 
+    public function finalize(Request $request, $id)
+    {
+        $user = $request->user();
+        if (! $user instanceof User) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $company = $this->getCompany();
+        if (! $company) {
+            return response()->json(['message' => 'Company not found'], 404);
+        }
+
+        $booking = Booking::where('company_id', $company->id)->where('id', $id)->first();
+        if (! $booking) {
+            return response()->json(['message' => 'Booking not found'], 404);
+        }
+
+        if ((string) $booking->status !== 'done') {
+            return response()->json([
+                'message' => 'Only a booking with done status can be finalized',
+            ], 422);
+        }
+
+        $payment = BookingPayment::where('booking_id', $booking->id)->latest()->first();
+        if (! $payment || (string) $payment->status !== 'requires_capture') {
+            return response()->json([
+                'message' => 'A capturable payment authorization is required before finalizing',
+            ], 422);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'extras_price' => 'sometimes|nullable|numeric|min:0',
+            'parking' => 'sometimes|nullable|numeric|min:0',
+            'others' => 'sometimes|nullable|numeric|min:0',
+            'airport_fees' => 'sometimes|nullable|numeric|min:0',
+            'congestion_charge' => 'sometimes|nullable|numeric|min:0',
+            'extra_stops' => 'sometimes|nullable|integer|min:0',
+            'waiting_minutes' => 'sometimes|nullable|numeric|min:0',
+            'tolls' => 'sometimes|nullable|numeric|min:0',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $beforeSnapshot = $booking->only([
+            'status',
+            'extras_price',
+            'parking',
+            'others',
+            'airport_fees',
+            'congestion_charge',
+            'extra_stops',
+            'waiting_minutes',
+            'tolls',
+            'final_price',
+        ]);
+
+        $booking->fill($request->only([
+            'extras_price',
+            'parking',
+            'others',
+            'airport_fees',
+            'congestion_charge',
+            'extra_stops',
+            'waiting_minutes',
+            'tolls',
+        ]));
+
+        $vehicleClass = VehicleClass::find($booking->vehicle_class_id);
+        $systemConfig = $this->getSystemConfig($booking->company_id);
+        $priceCalculation = $this->calculatePrice($vehicleClass, $this->buildPriceInput($booking, $systemConfig));
+        $finalPrice = (float) $priceCalculation['total_price'];
+
+        if ($finalPrice > (float) $payment->authorized_amount) {
+            return response()->json([
+                'message' => 'Final price exceeds authorized amount. Additional charge flow is required.',
+                'data' => [
+                    'final_price' => $finalPrice,
+                    'authorized_amount' => (float) $payment->authorized_amount,
+                ],
+            ], 422);
+        }
+
+        DB::transaction(function () use ($booking, $priceCalculation): void {
+            $booking->base_price = $priceCalculation['base_price'];
+            $booking->extra_stop_amount = $priceCalculation['extra_stop_amount'];
+            $booking->waiting_time_amount = $priceCalculation['waiting_time_amount'];
+            $booking->pricing_method = $priceCalculation['pricing_method'];
+            $booking->taxes = $priceCalculation['tax_rate'];
+            $booking->taxes_amount = $priceCalculation['taxes_amount'];
+            $booking->gratuity = $priceCalculation['gratuity_percentage'];
+            $booking->gratuity_amount = $priceCalculation['gratuity_amount'];
+            $booking->surge_rate = $priceCalculation['surge_rate'];
+            $booking->surge_rate_amount = $priceCalculation['surge_rate_amount'];
+            $booking->cancellation_fee = 0;
+            $booking->final_price = $priceCalculation['total_price'];
+            $booking->status = 'completed';
+            $booking->save();
+        });
+
+        $freshBooking = $booking->fresh();
+        $afterSnapshot = $freshBooking->only(array_keys($beforeSnapshot));
+        [$oldValues, $newValues] = $this->diffValues($beforeSnapshot, $afterSnapshot);
+
+        $this->logBookingActivity(
+            request: $request,
+            booking: $freshBooking,
+            action: 'booking_finalized',
+            description: 'Booking finalized by admin/dispatcher',
+            oldValues: $oldValues,
+            newValues: $newValues
+        );
+
+        return response()->json([
+            'message' => 'Booking finalized successfully and is ready for payment capture',
+            'data' => $freshBooking,
+            'calculation' => $this->buildCalculationBreakdown($priceCalculation),
+            'payment' => [
+                'authorized_amount' => (float) $payment->authorized_amount,
+                'amount_to_capture' => $finalPrice,
+                'remaining_authorization' => round((float) $payment->authorized_amount - $finalPrice, 2),
+            ],
+        ]);
+    }
+
     public function updateStatusOnly(Request $request, $id)
     {
         $user = $request->user();
@@ -1452,6 +1624,12 @@ class BookingController extends Controller
             $booking->base_price = 0;
             $booking->extras_price = 0;
             $booking->parking = 0;
+            $booking->tolls = 0;
+            $booking->extra_stops = 0;
+            $booking->extra_stop_amount = 0;
+            $booking->waiting_minutes = 0;
+            $booking->waiting_time_amount = 0;
+            $booking->pricing_method = 'cancellation';
             $booking->others = 0;
             $booking->airport_fees = 0;
             $booking->congestion_charge = 0;
@@ -1556,6 +1734,12 @@ class BookingController extends Controller
         $booking->base_price = 0;
         $booking->extras_price = 0;
         $booking->parking = 0;
+        $booking->tolls = 0;
+        $booking->extra_stops = 0;
+        $booking->extra_stop_amount = 0;
+        $booking->waiting_minutes = 0;
+        $booking->waiting_time_amount = 0;
+        $booking->pricing_method = 'cancellation';
         $booking->others = 0;
         $booking->airport_fees = 0;
         $booking->congestion_charge = 0;
@@ -1670,40 +1854,97 @@ class BookingController extends Controller
         $others = (float) $data['others'];
         $airportFees = (float) $data['airport_fees'];
         $congestionCharge = (float) $data['congestion_charge'];
+        $tolls = (float) $data['tolls'];
+        $extraStops = (int) $data['extra_stops'];
+        $waitingMinutes = (float) $data['waiting_minutes'];
 
         $rate = 0;
         $units = 0;
+        $pricingMethod = 'distance';
+        $available = true;
+        $unavailableReason = null;
 
         switch ($serviceType) {
             case 'hourly':
-                $rate = (float) ($vehicleClass?->hourly_rate ?? 0);
+                $pickupDay = Carbon::parse($data['pickup_time'])->englishDayOfWeek;
+                $isPeak = in_array(strtolower($pickupDay), $data['peak_days'], true)
+                    && $vehicleClass?->peak_hourly_rate !== null;
+                $selectedHourlyRate = $isPeak ? $vehicleClass?->peak_hourly_rate : $vehicleClass?->hourly_rate;
+                $rate = (float) ($selectedHourlyRate ?? 0);
                 $units = $hours;
+                $pricingMethod = $isPeak ? 'peak_hourly' : 'hourly';
+                $available = $selectedHourlyRate !== null;
+                $unavailableReason = $available ? null : 'Hourly rate is not configured for this vehicle class';
                 break;
             case 'airport':
-                $rate = (float) ($vehicleClass?->airport_rate ?? 0);
-                $units = $distanceKm;
+                $airportRate = $vehicleClass?->airportRates()
+                    ->where('airport_id', $data['airport_id'])
+                    ->where('service_zone', 'Manhattan')
+                    ->first();
+                $available = $airportRate !== null;
+                $unavailableReason = $available ? null : 'Airport rate is not configured for this vehicle class';
+                $rate = (float) ($airportRate?->rate ?? 0);
+                $units = 1;
+                $pricingMethod = 'airport_flat_rate';
                 break;
-            case 'point_to_point':
             case 'custom':
-            default:
                 $rate = (float) ($vehicleClass?->per_km_rate ?? 0);
                 $units = $distanceKm;
+                $pricingMethod = 'distance';
+                $available = $vehicleClass?->per_km_rate !== null;
+                $unavailableReason = $available ? null : 'Distance rate is not configured for this vehicle class';
+                break;
+            case 'point_to_point':
+            default:
+                if ($vehicleClass?->point_to_point_rate === null) {
+                    $rate = (float) ($vehicleClass?->per_km_rate ?? 0);
+                    $units = $distanceKm;
+                    $pricingMethod = 'distance';
+                    $available = $vehicleClass?->per_km_rate !== null;
+                    $unavailableReason = $available ? null : 'Point-to-point rate is not configured for this vehicle class';
+                } elseif ($distanceKm <= $data['short_distance_limit_km']) {
+                    $rate = (float) $vehicleClass->point_to_point_rate;
+                    $units = 1;
+                    $pricingMethod = 'point_to_point_flat';
+                } elseif ($distanceKm <= $data['distance_rate_start_km']) {
+                    $rate = (float) ($vehicleClass->hourly_rate ?? 0);
+                    $units = (float) $data['point_to_point_minimum_hours'];
+                    $pricingMethod = 'point_to_point_minimum_hours';
+                    $available = $vehicleClass->hourly_rate !== null;
+                    $unavailableReason = $available ? null : 'Hourly rate is not configured for this vehicle class';
+                } else {
+                    $rate = (float) ($vehicleClass->per_km_rate ?? 0);
+                    $units = $distanceKm;
+                    $pricingMethod = 'distance';
+                    $available = $vehicleClass->per_km_rate !== null;
+                    $unavailableReason = $available ? null : 'Distance rate is not configured for this vehicle class';
+                }
                 break;
         }
 
         $cancellationFee = $status === 'cancelled' ? $configuredCancellationFee : 0;
-        $subtotal = $basePrice + ($units * $rate) + $extrasPrice + $parking + $others + $airportFees + $congestionCharge;
+        $tripFare = $units * $rate;
+        $extraStopAmount = $vehicleClass?->extra_stop_eligible ? $extraStops * $data['extra_stop_fee'] : 0;
+        $waitingTimeAmount = $waitingMinutes > $data['waiting_grace_minutes']
+            ? ($waitingMinutes / 60) * $data['wait_time_rate']
+            : 0;
+        $subtotal = $basePrice + $tripFare + $extrasPrice + $parking + $others + $airportFees
+            + $congestionCharge + $tolls + $extraStopAmount + $waitingTimeAmount;
         $surgeAmount = $subtotal * ($surgeRate / 100);
         $taxesAmount = ($subtotal + $surgeAmount) * ($taxRate / 100);
         $gratuityAmount = ($subtotal + $surgeAmount) * ($gratuityPercentage / 100);
-        $preAuthBase = $subtotal + $surgeAmount + $taxesAmount + $gratuityAmount + $cancellationFee;
-        $bufferAmount = $preAuthBase * ($rateBuffer / 100);
-        $total = $preAuthBase + $bufferAmount;
+        $total = $subtotal + $surgeAmount + $taxesAmount + $gratuityAmount + $cancellationFee;
+        $bufferAmount = $total * ($rateBuffer / 100);
+        $authorizationAmount = $total + $bufferAmount;
 
         return [
             'service_type' => $serviceType,
             'rate' => $rate,
             'units' => $units,
+            'pricing_method' => $pricingMethod,
+            'available' => $available,
+            'unavailable_reason' => $unavailableReason,
+            'trip_fare' => $tripFare,
             'base_price' => $basePrice,
             'distance_km' => $distanceKm,
             'hours' => $hours,
@@ -1721,8 +1962,14 @@ class BookingController extends Controller
             'others' => $others,
             'airport_fees' => $airportFees,
             'congestion_charge' => $congestionCharge,
+            'tolls' => $tolls,
+            'extra_stops' => $extraStops,
+            'extra_stop_amount' => $extraStopAmount,
+            'waiting_minutes' => $waitingMinutes,
+            'waiting_time_amount' => $waitingTimeAmount,
             'buffer_amount' => $bufferAmount,
             'total_price' => $total,
+            'authorization_amount' => $authorizationAmount,
         ];
     }
 
@@ -1740,6 +1987,18 @@ class BookingController extends Controller
             'surge_rate' => (float) ($config->surge_rate ?? 0),
             'cancellation_fee' => (float) ($config->cancellation_fee ?? 0),
             'status' => (string) ($data->status ?? ''),
+            'airport_id' => $data->airport_id ?? null,
+            'pickup_time' => $data->pickup_time,
+            'short_distance_limit_km' => (float) ($config->short_distance_limit_km ?? 16.09),
+            'distance_rate_start_km' => (float) ($config->distance_rate_start_km ?? 32.19),
+            'point_to_point_minimum_hours' => (float) ($config->point_to_point_minimum_hours ?? 2),
+            'peak_days' => array_map('strtolower', $config->peak_days ?? ['friday', 'saturday']),
+            'extra_stop_fee' => (float) ($config->extra_stop_fee ?? 40),
+            'wait_time_rate' => (float) ($config->wait_time_rate ?? 0),
+            'waiting_grace_minutes' => (int) ($config->waiting_grace_minutes ?? 15),
+            'extra_stops' => (int) ($data->extra_stops ?? 0),
+            'waiting_minutes' => (float) ($data->waiting_minutes ?? 0),
+            'tolls' => (float) ($data->tolls ?? 0),
             'parking' => (float) ($data->parking ?? 0),
             'others' => (float) ($data->others ?? 0),
             'airport_fees' => (float) ($data->airport_fees ?? 0),
@@ -1761,6 +2020,8 @@ class BookingController extends Controller
 
         return [
             'rate' => $priceCalculation['rate'],
+            'pricing_method' => $priceCalculation['pricing_method'],
+            'trip_fare' => $priceCalculation['trip_fare'],
             $billedField => $billedValue,
             'base_price' => $priceCalculation['base_price'],
             'extras_price' => $priceCalculation['extras_price'],
@@ -1768,6 +2029,11 @@ class BookingController extends Controller
             'congestion_charge' => $priceCalculation['congestion_charge'],
             'parking' => $priceCalculation['parking'],
             'others' => $priceCalculation['others'],
+            'tolls' => $priceCalculation['tolls'],
+            'extra_stops' => $priceCalculation['extra_stops'],
+            'extra_stop_amount' => $priceCalculation['extra_stop_amount'],
+            'waiting_minutes' => $priceCalculation['waiting_minutes'],
+            'waiting_time_amount' => $priceCalculation['waiting_time_amount'],
             'subtotal' => $priceCalculation['subtotal'],
             'surge_rate_percent' => $priceCalculation['surge_rate'],
             'surge_rate_amount' => $priceCalculation['surge_rate_amount'],
@@ -1779,6 +2045,7 @@ class BookingController extends Controller
             'rate_buffer_amount' => $priceCalculation['buffer_amount'],
             'cancellation_fee' => $priceCalculation['cancellation_fee'],
             'total_price' => $priceCalculation['total_price'],
+            'authorization_amount' => $priceCalculation['authorization_amount'],
         ];
     }
 
@@ -1993,6 +2260,10 @@ class BookingController extends Controller
             'service_type' => $serviceType,
             'rate' => 0,
             'units' => 0,
+            'pricing_method' => 'cancellation',
+            'available' => true,
+            'unavailable_reason' => null,
+            'trip_fare' => 0,
             'base_price' => 0,
             'distance_km' => 0,
             'hours' => 0,
@@ -2010,8 +2281,14 @@ class BookingController extends Controller
             'others' => 0,
             'airport_fees' => 0,
             'congestion_charge' => 0,
+            'tolls' => 0,
+            'extra_stops' => 0,
+            'extra_stop_amount' => 0,
+            'waiting_minutes' => 0,
+            'waiting_time_amount' => 0,
             'buffer_amount' => 0,
             'total_price' => $cancellationFee,
+            'authorization_amount' => $cancellationFee,
         ];
     }
 

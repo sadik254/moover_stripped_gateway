@@ -64,6 +64,14 @@ class SystemConfigController extends Controller
             'platform_name' => 'nullable|string|max:255',
             'primary_brand_color' => 'nullable|string|max:20',
             'secondary_brand_color' => 'nullable|string|max:20',
+            'short_distance_limit_km' => 'nullable|numeric|min:0',
+            'distance_rate_start_km' => 'nullable|numeric|min:0',
+            'point_to_point_minimum_hours' => 'nullable|numeric|min:0',
+            'peak_days' => 'nullable|array',
+            'peak_days.*' => 'string|in:monday,tuesday,wednesday,thursday,friday,saturday,sunday',
+            'extra_stop_fee' => 'nullable|numeric|min:0',
+            'extra_stop_minutes' => 'nullable|integer|min:0',
+            'waiting_grace_minutes' => 'nullable|integer|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -86,6 +94,13 @@ class SystemConfigController extends Controller
             'platform_name',
             'primary_brand_color',
             'secondary_brand_color',
+            'short_distance_limit_km',
+            'distance_rate_start_km',
+            'point_to_point_minimum_hours',
+            'peak_days',
+            'extra_stop_fee',
+            'extra_stop_minutes',
+            'waiting_grace_minutes',
         ]);
         $data['company_id'] = $company->id;
 
@@ -128,6 +143,14 @@ class SystemConfigController extends Controller
             'platform_name' => 'sometimes|nullable|string|max:255',
             'primary_brand_color' => 'sometimes|nullable|string|max:20',
             'secondary_brand_color' => 'sometimes|nullable|string|max:20',
+            'short_distance_limit_km' => 'sometimes|nullable|numeric|min:0',
+            'distance_rate_start_km' => 'sometimes|nullable|numeric|min:0',
+            'point_to_point_minimum_hours' => 'sometimes|nullable|numeric|min:0',
+            'peak_days' => 'sometimes|nullable|array',
+            'peak_days.*' => 'string|in:monday,tuesday,wednesday,thursday,friday,saturday,sunday',
+            'extra_stop_fee' => 'sometimes|nullable|numeric|min:0',
+            'extra_stop_minutes' => 'sometimes|nullable|integer|min:0',
+            'waiting_grace_minutes' => 'sometimes|nullable|integer|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -150,6 +173,13 @@ class SystemConfigController extends Controller
             'platform_name',
             'primary_brand_color',
             'secondary_brand_color',
+            'short_distance_limit_km',
+            'distance_rate_start_km',
+            'point_to_point_minimum_hours',
+            'peak_days',
+            'extra_stop_fee',
+            'extra_stop_minutes',
+            'waiting_grace_minutes',
         ]));
 
         $config->save();

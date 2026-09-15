@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Models\VehicleClass;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Uploadcare\Api;
 use Uploadcare\Configuration;
 
@@ -21,7 +22,7 @@ class VehicleClassController extends Controller
             ], 404);
         }
 
-        $classes = VehicleClass::where('company_id', $company->id)->get();
+        $classes = VehicleClass::with('airportRates.airport')->where('company_id', $company->id)->get();
 
         return response()->json([
             'data' => $classes,
@@ -45,8 +46,15 @@ class VehicleClassController extends Controller
             'capacity' => 'required|integer|min:1',
             'luggage' => 'required|integer|min:0',
             'hourly_rate' => 'nullable|numeric|min:0',
+            'peak_hourly_rate' => 'nullable|numeric|min:0',
+            'point_to_point_rate' => 'nullable|numeric|min:0',
             'per_km_rate' => 'nullable|numeric|min:0',
             'airport_rate' => 'nullable|numeric|min:0',
+            'extra_stop_eligible' => 'nullable|boolean',
+            'airport_rates' => 'nullable|array',
+            'airport_rates.*.airport_id' => ['required', Rule::exists('airports', 'id')->where('company_id', $company->id)],
+            'airport_rates.*.rate' => 'required|numeric|min:0',
+            'airport_rates.*.service_zone' => 'nullable|string|max:100',
         ]);
 
         if ($validator->fails()) {
@@ -62,8 +70,11 @@ class VehicleClassController extends Controller
             'capacity',
             'luggage',
             'hourly_rate',
+            'peak_hourly_rate',
+            'point_to_point_rate',
             'per_km_rate',
             'airport_rate',
+            'extra_stop_eligible',
         ]);
 
         // Uploadcare image
@@ -84,10 +95,11 @@ class VehicleClassController extends Controller
 
         // 🔑 THIS line auto-assigns company_id safely
         $vehicleClass = $company->vehicleClasses()->create($data);
+        $this->syncAirportRates($vehicleClass, $request->input('airport_rates'));
 
         return response()->json([
             'message' => 'Vehicle class created successfully',
-            'data' => $vehicleClass,
+            'data' => $vehicleClass->load('airportRates.airport'),
         ], 201);
     }
 
@@ -102,7 +114,7 @@ class VehicleClassController extends Controller
         }
 
         $vehicleClass = VehicleClass::where('company_id', $company->id)
-            ->with('vehicles')
+            ->with(['vehicles', 'airportRates.airport'])
             ->where('id', $id)
             ->first();
 
@@ -151,8 +163,15 @@ class VehicleClassController extends Controller
             'capacity' => 'sometimes|required|integer|min:1',
             'luggage' => 'sometimes|required|integer|min:0',
             'hourly_rate' => 'sometimes|nullable|numeric|min:0',
+            'peak_hourly_rate' => 'sometimes|nullable|numeric|min:0',
+            'point_to_point_rate' => 'sometimes|nullable|numeric|min:0',
             'per_km_rate' => 'sometimes|nullable|numeric|min:0',
             'airport_rate' => 'sometimes|nullable|numeric|min:0',
+            'extra_stop_eligible' => 'sometimes|boolean',
+            'airport_rates' => 'sometimes|array',
+            'airport_rates.*.airport_id' => ['required', Rule::exists('airports', 'id')->where('company_id', $company->id)],
+            'airport_rates.*.rate' => 'required|numeric|min:0',
+            'airport_rates.*.service_zone' => 'nullable|string|max:100',
         ]);
 
         if ($validator->fails()) {
@@ -186,16 +205,22 @@ class VehicleClassController extends Controller
                 'capacity',
                 'luggage',
                 'hourly_rate',
+                'peak_hourly_rate',
+                'point_to_point_rate',
                 'per_km_rate',
                 'airport_rate',
+                'extra_stop_eligible',
             ])
         );
 
         $vehicleClass->save();
+        if ($request->has('airport_rates')) {
+            $this->syncAirportRates($vehicleClass, $request->input('airport_rates'));
+        }
 
         return response()->json([
             'message' => 'Vehicle class updated successfully',
-            'data' => $vehicleClass,
+            'data' => $vehicleClass->load('airportRates.airport'),
         ], 200);
     }
 
@@ -224,5 +249,26 @@ class VehicleClassController extends Controller
         return response()->json([
             'message' => 'Vehicle class deleted successfully',
         ], 200);
+    }
+
+    private function syncAirportRates(VehicleClass $vehicleClass, ?array $rates): void
+    {
+        if ($rates === null) {
+            return;
+        }
+
+        $keptIds = [];
+        foreach ($rates as $rate) {
+            $record = $vehicleClass->airportRates()->updateOrCreate(
+                [
+                    'airport_id' => $rate['airport_id'],
+                    'service_zone' => $rate['service_zone'] ?? 'Manhattan',
+                ],
+                ['rate' => $rate['rate']]
+            );
+            $keptIds[] = $record->id;
+        }
+
+        $vehicleClass->airportRates()->when($keptIds, fn ($query) => $query->whereNotIn('id', $keptIds))->delete();
     }
 }

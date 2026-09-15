@@ -23,10 +23,18 @@ class SystemConfig extends Model
         'platform_name',
         'primary_brand_color',
         'secondary_brand_color',
+        'short_distance_limit_km',
+        'distance_rate_start_km',
+        'point_to_point_minimum_hours',
+        'peak_days',
+        'extra_stop_fee',
+        'extra_stop_minutes',
+        'waiting_grace_minutes',
     ];
 
     protected $casts = [
         'service_zones' => 'array',
+        'peak_days' => 'array',
     ];
 
     public function company()

@@ -25,6 +25,7 @@
             <a class="nav-item" href="#customers" data-view="customers"><span class="nav-glyph">◎</span>Customers</a>
             <a class="nav-item" href="#drivers" data-view="drivers"><span class="nav-glyph">↗</span>Drivers</a>
             <a class="nav-item" href="#vehicle-classes" data-view="vehicle-classes"><span class="nav-glyph">▦</span>Vehicle classes</a>
+            <a class="nav-item" href="#airports" data-view="airports"><span class="nav-glyph">✈</span>Airports</a>
             <a class="nav-item" href="#vehicles" data-view="vehicles"><span class="nav-glyph">▣</span>Fleet</a>
             <a class="nav-item" href="#affiliates" data-view="affiliates"><span class="nav-glyph">◇</span>Affiliates</a>
             <a class="nav-item" href="#finance" data-view="finance"><span class="nav-glyph">$</span>Finance</a>
@@ -82,6 +83,7 @@
                 'customers' => ['Customers', 'Customer profiles and service preferences.', 'Add customer'],
                 'drivers' => ['Drivers', 'Driver accounts, availability and fleet assignments.', 'Add driver'],
                 'vehicle-classes' => ['Vehicle classes', 'Passenger capacity, luggage limits and pricing.', 'Add class'],
+                'airports' => ['Airports', 'Airports available for fixed-rate Manhattan transfers.', 'Add airport'],
                 'vehicles' => ['Fleet vehicles', 'Physical fleet records used by driver operations.', 'Add vehicle'],
                 'affiliates' => ['Affiliates', 'Partner operators and payout configuration.', 'Add affiliate'],
             ] as $key => [$title, $description, $action])
