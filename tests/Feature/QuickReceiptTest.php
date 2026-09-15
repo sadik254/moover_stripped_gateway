@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Booking;
+use App\Models\BookingPayment;
 use App\Models\Company;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -32,6 +33,24 @@ class QuickReceiptTest extends TestCase
             'pickup_time' => '2026-08-25 15:30:00',
             'passengers' => 2,
             'status' => 'confirmed',
+            'base_price' => 10,
+            'total_price' => 135,
+            'final_price' => 135,
+            'taxes' => 10,
+            'taxes_amount' => 10,
+            'gratuity' => 15,
+            'gratuity_amount' => 15,
+        ]);
+        BookingPayment::create([
+            'booking_id' => $booking->id,
+            'provider' => 'stripe',
+            'currency' => 'usd',
+            'payment_intent_id' => 'pi_quick_receipt_test',
+            'estimated_amount' => 135,
+            'authorized_amount' => 162,
+            'captured_amount' => 135,
+            'amount_to_capture' => 0,
+            'status' => 'succeeded',
         ]);
 
         $this->post('/api/bookings/quick-receipt', [

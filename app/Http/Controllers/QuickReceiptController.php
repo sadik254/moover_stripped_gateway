@@ -16,7 +16,7 @@ class QuickReceiptController extends Controller
             'trip_date' => ['required', 'date_format:Y-m-d'],
         ]);
 
-        $booking = Booking::with(['company', 'customer', 'vehicleClass', 'driver'])
+        $booking = Booking::with(['company', 'customer', 'vehicleClass', 'airport', 'driver', 'latestPayment'])
             ->whereKey($validated['booking_id'])
             ->whereDate('pickup_time', $validated['trip_date'])
             ->where(function ($query) use ($validated): void {
@@ -29,8 +29,30 @@ class QuickReceiptController extends Controller
             return response()->json(['message' => 'Booking not found'], 404);
         }
 
+        $payment = $booking->latestPayment;
+        $receiptTotal = (float) ($booking->final_price ?? $booking->total_price ?? 0);
+        $subtotal = max(0, $receiptTotal
+            - (float) ($booking->taxes_amount ?? 0)
+            - (float) ($booking->gratuity_amount ?? 0)
+            - (float) ($booking->surge_rate_amount ?? 0)
+            - (float) ($booking->cancellation_fee ?? 0));
+        $tripFare = max(0, $subtotal
+            - (float) ($booking->base_price ?? 0)
+            - (float) ($booking->extras_price ?? 0)
+            - (float) ($booking->parking ?? 0)
+            - (float) ($booking->others ?? 0)
+            - (float) ($booking->airport_fees ?? 0)
+            - (float) ($booking->congestion_charge ?? 0)
+            - (float) ($booking->tolls ?? 0)
+            - (float) ($booking->extra_stop_amount ?? 0)
+            - (float) ($booking->waiting_time_amount ?? 0));
+
         return Pdf::loadView('pdf.quick_receipt', [
             'booking' => $booking,
+            'payment' => $payment,
+            'currency' => strtoupper((string) ($payment?->currency ?: 'USD')),
+            'receiptTotal' => $receiptTotal,
+            'tripFare' => $tripFare,
             'passengerName' => $booking->name ?: $booking->customer?->name ?: 'Passenger',
             'passengerEmail' => $booking->email ?: $booking->customer?->email,
             'passengerPhone' => $booking->phone ?: $booking->customer?->phone,
