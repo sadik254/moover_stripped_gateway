@@ -432,9 +432,10 @@ class DriverController extends Controller
         }
 
         $query = Booking::with([
-                'customer:id,name,email,phone',
-                'vehicle:id,name,vehicle_class_id,plate_number,color,model,image',
-            ])
+            'stops:id,booking_id,address,position',
+            'customer:id,name,email,phone',
+            'vehicle:id,name,vehicle_class_id,plate_number,color,model,image',
+        ])
             ->where('driver_id', $driver->id)
             ->orderByDesc('pickup_time');
 

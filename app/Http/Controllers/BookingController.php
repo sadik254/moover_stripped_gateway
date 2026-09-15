@@ -58,7 +58,7 @@ class BookingController extends Controller
             ], 422);
         }
 
-        $query = Booking::with(['driver:id,name', 'vehicleClass:id,name,capacity,luggage,image', 'airport:id,code,name'])
+        $query = Booking::with(['stops:id,booking_id,address,position', 'driver:id,name', 'vehicleClass:id,name,capacity,luggage,image', 'airport:id,code,name'])
             ->where('company_id', $company->id);
 
         if ($request->filled('status')) {
@@ -99,7 +99,7 @@ class BookingController extends Controller
             ], 422);
         }
 
-        $query = Booking::with(['vehicleClass:id,name,capacity,luggage,image', 'airport:id,code,name'])
+        $query = Booking::with(['stops:id,booking_id,address,position', 'vehicleClass:id,name,capacity,luggage,image', 'airport:id,code,name'])
             ->where('company_id', $company->id)
             ->where('customer_id', $authUser->id);
 
@@ -520,6 +520,7 @@ class BookingController extends Controller
         $perPage = (int) $request->input('per_page', 30);
 
         $bookings = Booking::with([
+            'stops:id,booking_id,address,position',
             'customer:id,name,email,phone',
             'driver:id,name,phone',
             'vehicleClass:id,name,image',
@@ -604,6 +605,7 @@ class BookingController extends Controller
         $todayEnd = now()->endOfDay();
 
         $feed = Booking::with([
+            'stops:id,booking_id,address,position',
             'customer:id,name,email,phone',
             'driver:id,name,phone',
             'vehicleClass:id,name,capacity,luggage,image',
@@ -919,7 +921,7 @@ class BookingController extends Controller
         }
 
         $booking = Booking::where('company_id', $company->id)
-            ->with(['vehicleClass', 'airport', 'driver', 'customer'])
+            ->with(['stops:id,booking_id,address,position', 'vehicleClass', 'airport', 'driver', 'customer'])
             ->where('id', $id)
             ->first();
 

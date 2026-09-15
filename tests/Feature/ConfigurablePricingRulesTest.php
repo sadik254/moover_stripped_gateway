@@ -88,6 +88,18 @@ class ConfigurablePricingRulesTest extends TestCase
             ->assertJsonPath('data.stops.0.position', 1)
             ->assertJsonPath('data.stops.1.address', 'Second middle address')
             ->assertJsonPath('data.stops.1.position', 2);
+
+        $bookingId = $response->json('data.id');
+        $this->actingAs(User::first(), 'sanctum')
+            ->getJson("/api/bookings/{$bookingId}")
+            ->assertOk()
+            ->assertJsonPath('data.stops.0.address', 'First middle address')
+            ->assertJsonPath('data.stops.1.address', 'Second middle address');
+
+        $this->getJson('/api/bookings?per_page=10')
+            ->assertOk()
+            ->assertJsonPath('data.data.0.stops.0.address', 'First middle address')
+            ->assertJsonPath('data.data.0.stops.1.address', 'Second middle address');
     }
 
     private function pricingSetup(): array

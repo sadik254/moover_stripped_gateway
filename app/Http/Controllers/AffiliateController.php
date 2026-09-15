@@ -414,6 +414,7 @@ class AffiliateController extends Controller
         }
 
         $query = Booking::with([
+            'stops:id,booking_id,address,position',
             'customer:id,name,email,phone',
             'vehicleClass:id,name,capacity,luggage,image',
             'assignedAffiliateDriver:id,name,email,phone,status',
@@ -458,6 +459,7 @@ class AffiliateController extends Controller
         }
 
         $booking = Booking::with([
+            'stops:id,booking_id,address,position',
             'customer:id,name,email,phone',
             'vehicleClass:id,name,capacity,luggage,image',
             'assignedAffiliateDriver:id,name,email,phone,status',
