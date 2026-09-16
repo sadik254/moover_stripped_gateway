@@ -34,7 +34,7 @@ class BookingCreatedMail extends Mailable
 
     public function __construct(Booking $booking, bool $isAdminCopy = false)
     {
-        $booking->loadMissing(['company', 'customer', 'vehicleClass', 'driver']);
+        $booking->loadMissing(['company', 'customer', 'vehicleClass', 'driver', 'stops']);
         $company = $booking->company ?? Company::first();
 
         $this->booking = $booking;

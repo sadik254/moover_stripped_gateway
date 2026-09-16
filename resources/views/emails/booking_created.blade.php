@@ -38,6 +38,9 @@
                             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:16px;">
                                 <tr><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#64748b;font-size:13px;width:38%;">Service</td><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#0f172a;font-size:14px;font-weight:600;text-transform:capitalize;">{{ $serviceType }}</td></tr>
                                 <tr><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#64748b;font-size:13px;">Pickup</td><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#0f172a;font-size:14px;font-weight:600;">{{ $booking->pickup_address }}</td></tr>
+                                @foreach ($booking->stops as $stop)
+                                    <tr><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#64748b;font-size:13px;">Stop {{ $stop->position }}</td><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#0f172a;font-size:14px;font-weight:600;">{{ $stop->address }}</td></tr>
+                                @endforeach
                                 @if ($booking->dropoff_address)
                                     <tr><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#64748b;font-size:13px;">Drop-off</td><td style="padding:10px 0;border-bottom:1px solid #e5e7eb;color:#0f172a;font-size:14px;font-weight:600;">{{ $booking->dropoff_address }}</td></tr>
                                 @endif

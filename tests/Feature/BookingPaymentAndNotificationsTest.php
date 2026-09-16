@@ -68,6 +68,11 @@ class BookingPaymentAndNotificationsTest extends TestCase
             'email' => 'booking.contact@example.com',
             'service_type' => 'point_to_point',
             'pickup_address' => '123 Pickup St',
+            'stops' => [
+                ['address' => '456 First Stop'],
+                ['address' => '789 Second Stop'],
+            ],
+            'dropoff_address' => '100 Drop-off Ave',
             'pickup_time' => now()->addHour()->toISOString(),
             'passengers' => 4,
             'child_seats' => 2,
@@ -104,6 +109,14 @@ class BookingPaymentAndNotificationsTest extends TestCase
         );
         Mail::assertSent(BookingCreatedMail::class, fn (BookingCreatedMail $mail): bool => $mail->hasTo('reservations@squarelimo.com') && $mail->isAdminCopy
         );
+        Mail::assertSent(BookingCreatedMail::class, function (BookingCreatedMail $mail): bool {
+            $html = $mail->render();
+
+            return str_contains($html, 'Stop 1')
+                && str_contains($html, '456 First Stop')
+                && str_contains($html, 'Stop 2')
+                && str_contains($html, '789 Second Stop');
+        });
 
         $secondResponse = $this->postJson('/api/bookings', $payload + [
             'email' => 'second.booking@example.com',
