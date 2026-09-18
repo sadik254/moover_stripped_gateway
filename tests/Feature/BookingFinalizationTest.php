@@ -21,6 +21,14 @@ class BookingFinalizationTest extends TestCase
         [$admin, $booking] = $this->bookingWithAuthorization(240);
         Sanctum::actingAs($admin, ['*']);
 
+        $this->getJson('/api/bookings')
+            ->assertOk()
+            ->assertJsonPath('data.data.0.total_price', 200)
+            ->assertJsonPath('data.data.0.final_price', 240)
+            ->assertJsonPath('data.data.0.estimated_amount', 200)
+            ->assertJsonPath('data.data.0.authorized_amount', 240)
+            ->assertJsonPath('data.data.0.captured_amount', null);
+
         $response = $this->postJson("/api/bookings/{$booking->id}/finalize", [
             'parking' => 10,
         ]);
@@ -56,6 +64,26 @@ class BookingFinalizationTest extends TestCase
             'authorized_amount' => 240,
             'amount_to_capture' => 210,
         ]);
+
+        $this->getJson('/api/bookings')
+            ->assertOk()
+            ->assertJsonPath('data.data.0.total_price', 200)
+            ->assertJsonPath('data.data.0.final_price', 240)
+            ->assertJsonPath('data.data.0.authorized_amount', 240)
+            ->assertJsonPath('data.data.0.amount_to_capture', 210);
+
+        BookingPayment::where('booking_id', $booking->id)->update([
+            'captured_amount' => 210,
+            'status' => 'succeeded',
+        ]);
+        $booking->update(['payment_status' => 'paid']);
+
+        $this->getJson('/api/bookings')
+            ->assertOk()
+            ->assertJsonPath('data.data.0.total_price', 200)
+            ->assertJsonPath('data.data.0.final_price', 210)
+            ->assertJsonPath('data.data.0.authorized_amount', 240)
+            ->assertJsonPath('data.data.0.captured_amount', 210);
     }
 
     public function test_finalization_is_rejected_when_actual_price_exceeds_the_authorization(): void

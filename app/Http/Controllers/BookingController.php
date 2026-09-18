@@ -59,7 +59,7 @@ class BookingController extends Controller
             ], 422);
         }
 
-        $query = Booking::with(['stops:id,booking_id,address,position', 'driver:id,name', 'vehicleClass:id,name,capacity,luggage,image', 'airport:id,code,name'])
+        $query = Booking::with(['stops:id,booking_id,address,position', 'driver:id,name', 'vehicleClass:id,name,capacity,luggage,image', 'airport:id,code,name', 'latestPayment'])
             ->where('company_id', $company->id);
 
         if ($request->filled('status')) {
@@ -71,6 +71,7 @@ class BookingController extends Controller
             ->orderByDesc('id')
             ->paginate($perPage)
             ->withQueryString();
+        $this->applyPaymentSummaries($bookings->getCollection());
 
         return response()->json(['data' => $bookings]);
     }
@@ -100,7 +101,7 @@ class BookingController extends Controller
             ], 422);
         }
 
-        $query = Booking::with(['stops:id,booking_id,address,position', 'vehicleClass:id,name,capacity,luggage,image', 'airport:id,code,name'])
+        $query = Booking::with(['stops:id,booking_id,address,position', 'vehicleClass:id,name,capacity,luggage,image', 'airport:id,code,name', 'latestPayment'])
             ->where('company_id', $company->id)
             ->where('customer_id', $authUser->id);
 
@@ -113,6 +114,7 @@ class BookingController extends Controller
             ->orderByDesc('id')
             ->paginate($perPage)
             ->withQueryString();
+        $this->applyPaymentSummaries($bookings->getCollection());
 
         return response()->json(['data' => $bookings]);
     }
@@ -525,12 +527,14 @@ class BookingController extends Controller
             'customer:id,name,email,phone',
             'driver:id,name,phone',
             'vehicleClass:id,name,image',
+            'latestPayment',
         ])
             ->where('company_id', $company->id)
             ->whereIn('status', ['picking_up', 'on_route'])
             ->orderByDesc('pickup_time')
             ->paginate($perPage)
             ->withQueryString();
+        $this->applyPaymentSummaries($bookings->getCollection());
 
         return response()->json(['data' => $bookings]);
     }
@@ -610,6 +614,7 @@ class BookingController extends Controller
             'customer:id,name,email,phone',
             'driver:id,name,phone',
             'vehicleClass:id,name,capacity,luggage,image',
+            'latestPayment',
         ])
             ->where('company_id', $company->id)
             ->whereIn('status', ['pending', 'assigned', 'picking_up', 'on_route', 'in_progress'])
@@ -617,6 +622,7 @@ class BookingController extends Controller
             ->orderByDesc('updated_at')
             ->limit(5)
             ->get();
+        $this->applyPaymentSummaries($feed);
 
         return response()->json([
             'data' => $feed,
@@ -922,13 +928,15 @@ class BookingController extends Controller
         }
 
         $booking = Booking::where('company_id', $company->id)
-            ->with(['stops:id,booking_id,address,position', 'vehicleClass', 'airport', 'driver', 'customer'])
+            ->with(['stops:id,booking_id,address,position', 'vehicleClass', 'airport', 'driver', 'customer', 'latestPayment'])
             ->where('id', $id)
             ->first();
 
         if (! $booking) {
             return response()->json(['message' => 'Booking not found'], 404);
         }
+
+        $this->applyPaymentSummary($booking);
 
         return response()->json(['data' => $booking]);
     }
@@ -2106,6 +2114,54 @@ class BookingController extends Controller
             'airport_fees' => (float) ($data->airport_fees ?? 0),
             'congestion_charge' => (float) ($data->congestion_charge ?? 0),
         ];
+    }
+
+    private function applyPaymentSummaries(iterable $bookings): void
+    {
+        foreach ($bookings as $booking) {
+            $this->applyPaymentSummary($booking);
+        }
+    }
+
+    private function applyPaymentSummary(Booking $booking): Booking
+    {
+        $payment = $booking->relationLoaded('latestPayment')
+            ? $booking->latestPayment
+            : $booking->latestPayment()->select([
+                'id',
+                'booking_id',
+                'currency',
+                'estimated_amount',
+                'authorized_amount',
+                'captured_amount',
+                'amount_to_capture',
+                'status',
+            ])->first();
+
+        $authorizedAmount = $payment?->authorized_amount !== null
+            ? (float) $payment->authorized_amount
+            : null;
+        $capturedAmount = $payment?->captured_amount !== null
+            ? (float) $payment->captured_amount
+            : null;
+        $isPaidAndCompleted = (string) $booking->status === 'completed'
+            && (string) $booking->payment_status === 'paid'
+            && $capturedAmount !== null;
+
+        $displayFinalPrice = $isPaidAndCompleted
+            ? $capturedAmount
+            : ($authorizedAmount ?? (float) ($booking->getRawOriginal('final_price') ?? 0));
+
+        $booking->setAttribute('estimated_amount', $payment?->estimated_amount !== null ? (float) $payment->estimated_amount : null);
+        $booking->setAttribute('authorized_amount', $authorizedAmount);
+        $booking->setAttribute('captured_amount', $capturedAmount);
+        $booking->setAttribute('amount_to_capture', $payment?->amount_to_capture !== null ? (float) $payment->amount_to_capture : null);
+        $booking->setAttribute('payment_currency', $payment?->currency);
+        $booking->setAttribute('latest_payment_status', $payment?->status);
+        $booking->setAttribute('final_price', $displayFinalPrice);
+        $booking->unsetRelation('latestPayment');
+
+        return $booking;
     }
 
     private function buildCalculationBreakdown(?array $priceCalculation): ?array
