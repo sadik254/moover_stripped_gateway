@@ -2152,13 +2152,75 @@ class BookingController extends Controller
             ? $capturedAmount
             : ($authorizedAmount ?? (float) ($booking->getRawOriginal('final_price') ?? 0));
 
-        $booking->setAttribute('estimated_amount', $payment?->estimated_amount !== null ? (float) $payment->estimated_amount : null);
+        $estimatedAmount = $payment?->estimated_amount !== null
+            ? (float) $payment->estimated_amount
+            : (float) ($booking->total_price ?? 0);
+        $authorizationBufferAmount = $authorizedAmount !== null
+            ? max(0, $authorizedAmount - $estimatedAmount)
+            : (float) ($booking->rate_buffer_amount ?? 0);
+        $authorizationBufferPercent = $estimatedAmount > 0
+            ? round(($authorizationBufferAmount / $estimatedAmount) * 100, 2)
+            : (float) ($booking->rate_buffer ?? 0);
+        $subtotal = max(0, (float) ($booking->total_price ?? 0)
+            - (float) ($booking->taxes_amount ?? 0)
+            - (float) ($booking->gratuity_amount ?? 0)
+            - (float) ($booking->surge_rate_amount ?? 0)
+            - (float) ($booking->cancellation_fee ?? 0));
+        $tripFare = max(0, $subtotal
+            - (float) ($booking->base_price ?? 0)
+            - (float) ($booking->extras_price ?? 0)
+            - (float) ($booking->parking ?? 0)
+            - (float) ($booking->others ?? 0)
+            - (float) ($booking->airport_fees ?? 0)
+            - (float) ($booking->congestion_charge ?? 0)
+            - (float) ($booking->tolls ?? 0)
+            - (float) ($booking->extra_stop_amount ?? 0)
+            - (float) ($booking->waiting_time_amount ?? 0));
+
+        $booking->setAttribute('estimated_amount', $payment?->estimated_amount !== null ? $estimatedAmount : null);
         $booking->setAttribute('authorized_amount', $authorizedAmount);
         $booking->setAttribute('captured_amount', $capturedAmount);
         $booking->setAttribute('amount_to_capture', $payment?->amount_to_capture !== null ? (float) $payment->amount_to_capture : null);
         $booking->setAttribute('payment_currency', $payment?->currency);
         $booking->setAttribute('latest_payment_status', $payment?->status);
         $booking->setAttribute('final_price', $displayFinalPrice);
+        $booking->setAttribute('pricing_type', $booking->service_type);
+        $booking->setAttribute('pricing_details', [
+            'pricing_type' => $booking->service_type,
+            'pricing_method' => $booking->pricing_method,
+            'distance_km' => $booking->distance_km !== null ? (float) $booking->distance_km : null,
+            'hours' => $booking->hours !== null ? (float) $booking->hours : null,
+            'base_price' => (float) ($booking->base_price ?? 0),
+            'trip_fare' => round($tripFare, 2),
+            'extras_price' => (float) ($booking->extras_price ?? 0),
+            'extra_stops' => (int) ($booking->extra_stops ?? 0),
+            'extra_stop_amount' => (float) ($booking->extra_stop_amount ?? 0),
+            'waiting_minutes' => (float) ($booking->waiting_minutes ?? 0),
+            'waiting_time_amount' => (float) ($booking->waiting_time_amount ?? 0),
+            'parking' => (float) ($booking->parking ?? 0),
+            'tolls' => (float) ($booking->tolls ?? 0),
+            'airport_fees' => (float) ($booking->airport_fees ?? 0),
+            'congestion_charge' => (float) ($booking->congestion_charge ?? 0),
+            'other_charges' => (float) ($booking->others ?? 0),
+            'subtotal' => round($subtotal, 2),
+            'surge_rate_percent' => (float) ($booking->surge_rate ?? 0),
+            'surge_rate_amount' => (float) ($booking->surge_rate_amount ?? 0),
+            'tax_rate_percent' => (float) ($booking->taxes ?? 0),
+            'tax_amount' => (float) ($booking->taxes_amount ?? 0),
+            'gratuity_percent' => (float) ($booking->gratuity ?? 0),
+            'gratuity_amount' => (float) ($booking->gratuity_amount ?? 0),
+            'cancellation_fee' => (float) ($booking->cancellation_fee ?? 0),
+            'estimated_total' => $estimatedAmount,
+            'authorization_buffer_percent' => $authorizationBufferPercent,
+            'authorization_buffer_amount' => round($authorizationBufferAmount, 2),
+            'authorized_total' => $authorizedAmount,
+            'finalized_total' => $booking->getRawOriginal('final_price') !== null
+                ? (float) $booking->getRawOriginal('final_price')
+                : null,
+            'captured_total' => $capturedAmount,
+            'display_final_price' => $displayFinalPrice,
+            'currency' => $payment?->currency,
+        ]);
         $booking->unsetRelation('latestPayment');
 
         return $booking;

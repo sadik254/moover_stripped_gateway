@@ -27,7 +27,15 @@ class BookingFinalizationTest extends TestCase
             ->assertJsonPath('data.data.0.final_price', 240)
             ->assertJsonPath('data.data.0.estimated_amount', 200)
             ->assertJsonPath('data.data.0.authorized_amount', 240)
-            ->assertJsonPath('data.data.0.captured_amount', null);
+            ->assertJsonPath('data.data.0.captured_amount', null)
+            ->assertJsonPath('data.data.0.pricing_type', 'point_to_point')
+            ->assertJsonPath('data.data.0.pricing_details.pricing_type', 'point_to_point')
+            ->assertJsonPath('data.data.0.pricing_details.trip_fare', 200)
+            ->assertJsonPath('data.data.0.pricing_details.estimated_total', 200)
+            ->assertJsonPath('data.data.0.pricing_details.authorization_buffer_percent', 20)
+            ->assertJsonPath('data.data.0.pricing_details.authorization_buffer_amount', 40)
+            ->assertJsonPath('data.data.0.pricing_details.authorized_total', 240)
+            ->assertJsonPath('data.data.0.pricing_details.display_final_price', 240);
 
         $response = $this->postJson("/api/bookings/{$booking->id}/finalize", [
             'parking' => 10,
@@ -83,7 +91,10 @@ class BookingFinalizationTest extends TestCase
             ->assertJsonPath('data.data.0.total_price', 200)
             ->assertJsonPath('data.data.0.final_price', 210)
             ->assertJsonPath('data.data.0.authorized_amount', 240)
-            ->assertJsonPath('data.data.0.captured_amount', 210);
+            ->assertJsonPath('data.data.0.captured_amount', 210)
+            ->assertJsonPath('data.data.0.pricing_details.finalized_total', 210)
+            ->assertJsonPath('data.data.0.pricing_details.captured_total', 210)
+            ->assertJsonPath('data.data.0.pricing_details.display_final_price', 210);
     }
 
     public function test_finalization_is_rejected_when_actual_price_exceeds_the_authorization(): void
