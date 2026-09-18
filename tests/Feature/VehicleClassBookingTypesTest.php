@@ -98,6 +98,6 @@ class VehicleClassBookingTypesTest extends TestCase
 
         $this->assertDatabaseCount('bookings', 4);
         $this->assertTrue(Schema::hasColumn('bookings', 'vehicle_class_id'));
-        $this->assertFalse(Schema::hasColumn('bookings', 'vehicle_id'));
+        $this->assertTrue(Schema::hasColumn('bookings', 'vehicle_id'));
     }
 }

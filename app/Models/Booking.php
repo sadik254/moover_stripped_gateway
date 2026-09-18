@@ -9,7 +9,7 @@ class Booking extends Model
 {
     use HasFactory;
 
-    protected $with = ['stops'];
+    protected $with = ['stops', 'vehicle'];
 
     protected $fillable = [
         'company_id',
@@ -19,6 +19,7 @@ class Booking extends Model
         'email',
         'phone',
         'vehicle_class_id',
+        'vehicle_id',
         'airport_id',
         'driver_id',
         'affiliate_id',
@@ -84,6 +85,11 @@ class Booking extends Model
     public function vehicleClass()
     {
         return $this->belongsTo(VehicleClass::class);
+    }
+
+    public function vehicle()
+    {
+        return $this->belongsTo(Vehicle::class);
     }
 
     public function airport()

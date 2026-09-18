@@ -101,7 +101,7 @@ class BookingPaymentAndNotificationsTest extends TestCase
         $response->assertJsonPath('data.service_type', 'point_to_point');
         $response->assertJsonPath('data.distance_km', 10);
         $response->assertJsonPath('data.vehicle_class_id', $vehicleClass->id);
-        $response->assertJsonMissingPath('data.vehicle_id');
+        $response->assertJsonPath('data.vehicle_id', null);
         $response->assertJsonPath('calculation.rate', 3.5);
         $response->assertJsonStructure(['calculation' => ['total_price']]);
         Mail::assertSent(BookingCreatedMail::class, 2);

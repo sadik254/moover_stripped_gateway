@@ -1482,7 +1482,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"driver_id\": {{driver_id}}\n}"
+              "raw": "{\n  \"driver_id\": {{driver_id}},\n  \"vehicle_id\": {{vehicle_id}}\n}"
             },
             "url": "{{api_url}}/bookings/{{booking_id}}/assign-driver"
           }

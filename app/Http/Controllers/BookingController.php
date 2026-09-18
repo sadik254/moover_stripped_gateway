@@ -15,6 +15,7 @@ use App\Models\Customer;
 use App\Models\Driver;
 use App\Models\SystemConfig;
 use App\Models\User;
+use App\Models\Vehicle;
 use App\Models\VehicleClass;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -1024,6 +1025,7 @@ class BookingController extends Controller
             'vehicle_class_id' => ['sometimes', Rule::exists('vehicle_classes', 'id')->where('company_id', $company->id)],
             'airport_id' => ['sometimes', 'nullable', Rule::exists('airports', 'id')->where('company_id', $company->id)],
             'driver_id' => ['sometimes', 'nullable', Rule::exists('drivers', 'id')],
+            'vehicle_id' => ['sometimes', 'nullable', Rule::exists('vehicles', 'id')->where('company_id', $company->id)],
             'service_type' => ['sometimes', Rule::in(['point_to_point', 'hourly', 'airport', 'custom'])],
             'pickup_address' => 'sometimes|required|string',
             'dropoff_address' => 'sometimes|nullable|string',
@@ -1074,6 +1076,16 @@ class BookingController extends Controller
             ], 422);
         }
 
+        if ($request->filled('vehicle_id')) {
+            $vehicle = Vehicle::where('company_id', $company->id)->find($request->vehicle_id);
+            $vehicleClassId = (int) $request->input('vehicle_class_id', $booking->vehicle_class_id);
+            if ($vehicle && (int) $vehicle->vehicle_class_id !== $vehicleClassId) {
+                return response()->json([
+                    'message' => 'Selected vehicle must belong to the booking vehicle class',
+                ], 422);
+            }
+        }
+
         $authUser = $request->user();
         if ($authUser instanceof Customer) {
             if ($request->filled('customer_id') && (int) $request->customer_id !== (int) $authUser->id) {
@@ -1100,6 +1112,7 @@ class BookingController extends Controller
                         'vehicle_class_id',
                         'airport_id',
                         'driver_id',
+                        'vehicle_id',
                         'service_type',
                         'pickup_address',
                         'dropoff_address',
@@ -1130,6 +1143,10 @@ class BookingController extends Controller
                 if ($request->has('stops')) {
                     $booking->extra_stops = count($request->input('stops', []));
                     $this->syncStops($booking, $request->input('stops', []));
+                }
+
+                if ($booking->isDirty('driver_id') && $booking->driver_id !== null) {
+                    $booking->status = 'assigned';
                 }
 
                 $latestPriceCalculation = null;
@@ -1342,6 +1359,10 @@ class BookingController extends Controller
                 'required',
                 Rule::exists('drivers', 'id')->where('company_id', $company->id),
             ],
+            'vehicle_id' => [
+                'nullable',
+                Rule::exists('vehicles', 'id')->where('company_id', $company->id),
+            ],
         ]);
 
         if ($validator->fails()) {
@@ -1367,8 +1388,24 @@ class BookingController extends Controller
             ], 409);
         }
 
-        $oldValues = ['driver_id' => $booking->driver_id];
+        $vehicle = $request->filled('vehicle_id')
+            ? Vehicle::where('company_id', $company->id)->find($request->vehicle_id)
+            : null;
+
+        if ($vehicle && (int) $vehicle->vehicle_class_id !== (int) $booking->vehicle_class_id) {
+            return response()->json([
+                'message' => 'Selected vehicle must belong to the booking vehicle class',
+            ], 422);
+        }
+
+        $oldValues = [
+            'driver_id' => $booking->driver_id,
+            'vehicle_id' => $booking->vehicle_id,
+            'status' => $booking->status,
+        ];
         $booking->driver_id = (int) $request->driver_id;
+        $booking->vehicle_id = $vehicle?->id;
+        $booking->status = 'assigned';
         $booking->save();
 
         $this->logBookingActivity(
@@ -1377,7 +1414,11 @@ class BookingController extends Controller
             action: 'driver_assigned',
             description: 'Driver assigned by admin/dispatcher',
             oldValues: $oldValues,
-            newValues: ['driver_id' => $booking->driver_id]
+            newValues: [
+                'driver_id' => $booking->driver_id,
+                'vehicle_id' => $booking->vehicle_id,
+                'status' => $booking->status,
+            ]
         );
 
         return response()->json([

@@ -55,6 +55,7 @@ const bookingEditFields = [
     ...formDefinitions.booking,
     field('vehicle_class_id', 'Vehicle class', 'select', { lookup: 'vehicle-classes', required: true }),
     field('driver_id', 'Driver', 'select', { lookup: 'drivers' }),
+    field('vehicle_id', 'Dispatch vehicle (optional)', 'select', { lookup: 'vehicles' }),
     field('status', 'Status', 'select', { choices: ['pending', 'confirmed', 'assigned', 'on_route', 'completed', 'cancelled', 'done'] }),
 ];
 
