@@ -15,6 +15,7 @@
                             @if (!empty($companyLogo))
                                 <img src="{{ $companyLogo }}" alt="{{ $platformName }} logo" style="max-height:44px;display:block;margin-bottom:12px;">
                             @endif
+                            <div style="font-size:18px;font-weight:700;margin-bottom:14px;">{{ $platformName }}</div>
                             <div style="font-size:12px;letter-spacing:1px;text-transform:uppercase;opacity:.85;">Password Reset Code {{ $platformName }}</div>
                             <div style="font-size:28px;font-weight:700;line-height:1.3;">Use this reset code</div>
                         </td>

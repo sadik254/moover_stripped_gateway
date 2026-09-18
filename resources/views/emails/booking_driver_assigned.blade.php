@@ -6,6 +6,7 @@
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:620px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
                 <tr><td style="padding:24px;background:#000000;color:#ffffff;">
                     @if ($booking->company?->logo)<img src="{{ $booking->company->logo }}" alt="{{ $booking->company?->name }} logo" style="max-height:44px;display:block;margin-bottom:12px;">@endif
+                    <div style="font-size:18px;font-weight:700;margin-bottom:14px;">{{ $booking->company?->name ?? config('app.name') }}</div>
                     <div style="font-size:12px;text-transform:uppercase;letter-spacing:1px;opacity:.8;">Booking #{{ $booking->id }}</div>
                     <div style="margin-top:6px;font-size:24px;font-weight:700;">Your driver is assigned</div>
                 </td></tr>
