@@ -30,10 +30,17 @@ class BookingFinalizationTest extends TestCase
             ->assertJsonPath('data.total_price', 200)
             ->assertJsonPath('data.final_price', 210)
             ->assertJsonPath('calculation.total_price', 210)
-            ->assertJsonPath('calculation.authorization_amount', 252)
+            ->assertJsonPath('calculation.rate_buffer_percent', 0)
+            ->assertJsonPath('calculation.rate_buffer_amount', 0)
+            ->assertJsonPath('calculation.authorization_amount', 210)
+            ->assertJsonPath('pricing.total_price', 210)
+            ->assertJsonPath('payment.original_estimated_amount', 200)
+            ->assertJsonPath('payment.original_rate_buffer_percent', 20)
+            ->assertJsonPath('payment.original_rate_buffer_amount', 40)
             ->assertJsonPath('payment.authorized_amount', 240)
             ->assertJsonPath('payment.amount_to_capture', 210)
-            ->assertJsonPath('payment.remaining_authorization', 30);
+            ->assertJsonPath('payment.remaining_authorization', 30)
+            ->assertJsonPath('payment.unused_authorization', 30);
 
         $this->assertDatabaseHas('bookings', [
             'id' => $booking->id,
@@ -41,8 +48,13 @@ class BookingFinalizationTest extends TestCase
             'total_price' => 200,
             'parking' => 10,
             'final_price' => 210,
-            'rate_buffer' => 20,
-            'rate_buffer_amount' => 40,
+            'rate_buffer' => 0,
+            'rate_buffer_amount' => 0,
+        ]);
+        $this->assertDatabaseHas('booking_payments', [
+            'booking_id' => $booking->id,
+            'authorized_amount' => 240,
+            'amount_to_capture' => 210,
         ]);
     }
 

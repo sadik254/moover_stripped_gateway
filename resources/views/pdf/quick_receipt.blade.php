@@ -139,8 +139,13 @@
             <div class="detail"><span>Payment status</span><strong>{{ ucwords(str_replace('_', ' ', $payment?->status ?: $booking->payment_status ?: 'Not paid')) }}</strong></div>
             <div class="detail"><span>Provider</span><strong>{{ ucfirst($payment?->provider ?: $booking->payment_method ?: 'Not available') }}</strong></div>
             <div class="clear"></div>
+            <div class="detail"><span>Original estimate</span><strong>{{ $currency }} {{ number_format($estimatedAmount, 2) }}</strong></div>
+            <div class="detail"><span>Authorization buffer{{ $authorizationBufferPercent > 0 ? ' ('.number_format($authorizationBufferPercent, 2).'%)' : '' }}</span><strong>{{ $currency }} {{ number_format($authorizationBuffer, 2) }}</strong></div>
+            <div class="clear"></div>
             <div class="detail"><span>Authorized</span><strong>{{ $payment ? $currency.' '.number_format((float) $payment->authorized_amount, 2) : 'Not available' }}</strong></div>
             <div class="detail"><span>Captured</span><strong>{{ $payment && $payment->captured_amount !== null ? $currency.' '.number_format((float) $payment->captured_amount, 2) : 'Not captured' }}</strong></div>
+            <div class="clear"></div>
+            <div class="detail detail-wide"><span>Unused authorization released</span><strong>{{ $currency }} {{ number_format($unusedAuthorization, 2) }}</strong></div>
             <div class="clear"></div>
             @if ($payment?->payment_intent_id)
                 <div class="detail detail-wide"><span>Payment reference</span><strong>{{ $payment->payment_intent_id }}</strong></div>

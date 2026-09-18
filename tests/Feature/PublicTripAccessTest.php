@@ -88,6 +88,9 @@ class PublicTripAccessTest extends TestCase
             ->assertSee('Trip fare')
             ->assertSee('Authorized amount')
             ->assertSee('USD 120.00')
+            ->assertSee('Authorization buffer')
+            ->assertSee('USD 20.00')
+            ->assertSee('Unused authorization released')
             ->assertSee('pi_public_receipt');
     }
 

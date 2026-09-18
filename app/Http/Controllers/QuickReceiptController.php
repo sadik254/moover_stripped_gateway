@@ -46,6 +46,13 @@ class QuickReceiptController extends Controller
             - (float) ($booking->tolls ?? 0)
             - (float) ($booking->extra_stop_amount ?? 0)
             - (float) ($booking->waiting_time_amount ?? 0));
+        $estimatedAmount = (float) ($payment?->estimated_amount ?? $booking->total_price ?? 0);
+        $authorizedAmount = (float) ($payment?->authorized_amount ?? 0);
+        $authorizationBuffer = max(0, $authorizedAmount - $estimatedAmount);
+        $authorizationBufferPercent = $estimatedAmount > 0
+            ? round(($authorizationBuffer / $estimatedAmount) * 100, 2)
+            : 0;
+        $unusedAuthorization = max(0, $authorizedAmount - $receiptTotal);
 
         return Pdf::loadView('pdf.quick_receipt', [
             'booking' => $booking,
@@ -53,6 +60,10 @@ class QuickReceiptController extends Controller
             'currency' => strtoupper((string) ($payment?->currency ?: 'USD')),
             'receiptTotal' => $receiptTotal,
             'tripFare' => $tripFare,
+            'estimatedAmount' => $estimatedAmount,
+            'authorizationBuffer' => $authorizationBuffer,
+            'authorizationBufferPercent' => $authorizationBufferPercent,
+            'unusedAuthorization' => $unusedAuthorization,
             'passengerName' => $booking->name ?: $booking->customer?->name ?: 'Passenger',
             'passengerEmail' => $booking->email ?: $booking->customer?->email,
             'passengerPhone' => $booking->phone ?: $booking->customer?->phone,

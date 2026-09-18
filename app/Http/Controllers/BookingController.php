@@ -1564,8 +1564,16 @@ class BookingController extends Controller
             'extra_stops',
             'waiting_minutes',
             'tolls',
+            'rate_buffer',
+            'rate_buffer_amount',
             'final_price',
         ]);
+
+        $originalRateBufferPercent = (float) ($booking->rate_buffer ?? 0);
+        $originalRateBufferAmount = (float) ($booking->rate_buffer_amount
+            ?? max(0, (float) $payment->authorized_amount - (float) $payment->estimated_amount));
+        $originalEstimatedAmount = (float) ($payment->estimated_amount
+            ?? max(0, (float) $payment->authorized_amount - $originalRateBufferAmount));
 
         $booking->fill($request->only([
             'extras_price',
@@ -1593,7 +1601,7 @@ class BookingController extends Controller
             ], 422);
         }
 
-        DB::transaction(function () use ($booking, $priceCalculation): void {
+        DB::transaction(function () use ($booking, $payment, $priceCalculation, $finalPrice): void {
             $booking->base_price = $priceCalculation['base_price'];
             $booking->extra_stop_amount = $priceCalculation['extra_stop_amount'];
             $booking->waiting_time_amount = $priceCalculation['waiting_time_amount'];
@@ -1605,9 +1613,16 @@ class BookingController extends Controller
             $booking->surge_rate = $priceCalculation['surge_rate'];
             $booking->surge_rate_amount = $priceCalculation['surge_rate_amount'];
             $booking->cancellation_fee = 0;
+            // The buffer belongs only to the original authorization. It must not
+            // remain active on a completed booking or be included in capture.
+            $booking->rate_buffer = 0;
+            $booking->rate_buffer_amount = 0;
             $booking->final_price = $priceCalculation['total_price'];
             $booking->status = 'completed';
             $booking->save();
+
+            $payment->amount_to_capture = $finalPrice;
+            $payment->save();
         });
 
         $freshBooking = $booking->fresh();
@@ -1623,14 +1638,24 @@ class BookingController extends Controller
             newValues: $newValues
         );
 
+        $finalBreakdown = $this->buildCalculationBreakdown($priceCalculation);
+        $finalBreakdown['rate_buffer_percent'] = 0;
+        $finalBreakdown['rate_buffer_amount'] = 0;
+        $finalBreakdown['authorization_amount'] = $finalPrice;
+
         return response()->json([
             'message' => 'Booking finalized successfully and is ready for payment capture',
             'data' => $freshBooking,
-            'calculation' => $this->buildCalculationBreakdown($priceCalculation),
+            'calculation' => $finalBreakdown,
+            'pricing' => $finalBreakdown,
             'payment' => [
+                'original_estimated_amount' => $originalEstimatedAmount,
+                'original_rate_buffer_percent' => $originalRateBufferPercent,
+                'original_rate_buffer_amount' => $originalRateBufferAmount,
                 'authorized_amount' => (float) $payment->authorized_amount,
                 'amount_to_capture' => $finalPrice,
                 'remaining_authorization' => round((float) $payment->authorized_amount - $finalPrice, 2),
+                'unused_authorization' => round((float) $payment->authorized_amount - $finalPrice, 2),
             ],
         ]);
     }
