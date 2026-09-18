@@ -102,6 +102,47 @@ class ConfigurablePricingRulesTest extends TestCase
             ->assertJsonPath('data.data.0.stops.1.address', 'Second middle address');
     }
 
+    public function test_fixed_km_tier_and_same_address_round_trip_hourly_pricing(): void
+    {
+        [$vehicleClass] = $this->pricingSetup();
+        $vehicleClass->update([
+            'fixed_km_rate' => 75,
+            'fixed_km_limit' => 20,
+        ]);
+
+        $basePayload = [
+            'name' => 'Pricing Customer',
+            'email' => 'pricing@example.com',
+            'service_type' => 'point_to_point',
+            'pickup_address' => 'Manhattan',
+            'dropoff_address' => 'Brooklyn',
+            'pickup_time' => '2026-09-16 10:00:00',
+            'passengers' => 2,
+            'bags' => 1,
+        ];
+
+        $this->postJson('/api/bookings', $basePayload + ['distance_km' => 15])
+            ->assertOk()
+            ->assertJsonPath('data.vehicle_class_options.0.pricing_method', 'fixed_km_rate')
+            ->assertJsonPath('data.vehicle_class_options.0.calculation.trip_fare', 75);
+
+        $this->postJson('/api/bookings', $basePayload + ['distance_km' => 25])
+            ->assertOk()
+            ->assertJsonPath('data.vehicle_class_options.0.pricing_method', 'point_to_point_minimum_hours')
+            ->assertJsonPath('data.vehicle_class_options.0.calculation.trip_fare', 200);
+
+        $this->postJson('/api/bookings', array_merge($basePayload, [
+            'pickup_address' => 'Manhattan',
+            'dropoff_address' => ' manhattan ',
+            'distance_km' => 15,
+            'hours' => 3,
+            'stops' => [['address' => 'Brooklyn']],
+        ]))->assertOk()
+            ->assertJsonPath('data.vehicle_class_options.0.pricing_method', 'round_trip_hourly')
+            ->assertJsonPath('data.vehicle_class_options.0.calculation.trip_fare', 300)
+            ->assertJsonPath('data.vehicle_class_options.0.total_price', 340);
+    }
+
     private function pricingSetup(): array
     {
         $owner = User::create([

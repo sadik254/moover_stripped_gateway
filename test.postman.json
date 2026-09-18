@@ -474,6 +474,16 @@
                   "type": "text"
                 },
                 {
+                  "key": "fixed_km_rate",
+                  "value": "100",
+                  "type": "text"
+                },
+                {
+                  "key": "fixed_km_limit",
+                  "value": "20",
+                  "type": "text"
+                },
+                {
                   "key": "per_km_rate",
                   "value": "2.49",
                   "type": "text"
@@ -566,6 +576,16 @@
                 {
                   "key": "point_to_point_rate",
                   "value": "90",
+                  "type": "text"
+                },
+                {
+                  "key": "fixed_km_rate",
+                  "value": "100",
+                  "type": "text"
+                },
+                {
+                  "key": "fixed_km_limit",
+                  "value": "20",
                   "type": "text"
                 },
                 {

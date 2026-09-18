@@ -1871,6 +1871,11 @@ class BookingController extends Controller
         $tolls = (float) $data['tolls'];
         $extraStops = (int) $data['extra_stops'];
         $waitingMinutes = (float) $data['waiting_minutes'];
+        $pickupAddress = trim(mb_strtolower((string) ($data['pickup_address'] ?? '')));
+        $dropoffAddress = trim(mb_strtolower((string) ($data['dropoff_address'] ?? '')));
+        $isHourlyRoundTrip = $extraStops > 0
+            && $pickupAddress !== ''
+            && $pickupAddress === $dropoffAddress;
 
         $rate = 0;
         $units = 0;
@@ -1878,62 +1883,85 @@ class BookingController extends Controller
         $available = true;
         $unavailableReason = null;
 
-        switch ($serviceType) {
-            case 'hourly':
-                $pickupDay = Carbon::parse($data['pickup_time'])->englishDayOfWeek;
-                $isPeak = in_array(strtolower($pickupDay), $data['peak_days'], true)
-                    && $vehicleClass?->peak_hourly_rate !== null;
-                $selectedHourlyRate = $isPeak ? $vehicleClass?->peak_hourly_rate : $vehicleClass?->hourly_rate;
-                $rate = (float) ($selectedHourlyRate ?? 0);
-                $units = $hours;
-                $pricingMethod = $isPeak ? 'peak_hourly' : 'hourly';
-                $available = $selectedHourlyRate !== null;
-                $unavailableReason = $available ? null : 'Hourly rate is not configured for this vehicle class';
-                break;
-            case 'airport':
-                $airportRate = $vehicleClass?->airportRates()
-                    ->where('airport_id', $data['airport_id'])
-                    ->where('service_zone', 'Manhattan')
-                    ->first();
-                $available = $airportRate !== null;
-                $unavailableReason = $available ? null : 'Airport rate is not configured for this vehicle class';
-                $rate = (float) ($airportRate?->rate ?? 0);
-                $units = 1;
-                $pricingMethod = 'airport_flat_rate';
-                break;
-            case 'custom':
-                $rate = (float) ($vehicleClass?->per_km_rate ?? 0);
-                $units = $distanceKm;
-                $pricingMethod = 'distance';
-                $available = $vehicleClass?->per_km_rate !== null;
-                $unavailableReason = $available ? null : 'Distance rate is not configured for this vehicle class';
-                break;
-            case 'point_to_point':
-            default:
-                if ($vehicleClass?->point_to_point_rate === null) {
-                    $rate = (float) ($vehicleClass?->per_km_rate ?? 0);
-                    $units = $distanceKm;
-                    $pricingMethod = 'distance';
-                    $available = $vehicleClass?->per_km_rate !== null;
-                    $unavailableReason = $available ? null : 'Point-to-point rate is not configured for this vehicle class';
-                } elseif ($distanceKm <= $data['short_distance_limit_km']) {
-                    $rate = (float) $vehicleClass->point_to_point_rate;
-                    $units = 1;
-                    $pricingMethod = 'point_to_point_flat';
-                } elseif ($distanceKm <= $data['distance_rate_start_km']) {
-                    $rate = (float) ($vehicleClass->hourly_rate ?? 0);
-                    $units = (float) $data['point_to_point_minimum_hours'];
-                    $pricingMethod = 'point_to_point_minimum_hours';
-                    $available = $vehicleClass->hourly_rate !== null;
+        if ($isHourlyRoundTrip) {
+            $pickupDay = Carbon::parse($data['pickup_time'])->englishDayOfWeek;
+            $isPeak = in_array(strtolower($pickupDay), $data['peak_days'], true)
+                && $vehicleClass?->peak_hourly_rate !== null;
+            $selectedHourlyRate = $isPeak ? $vehicleClass?->peak_hourly_rate : $vehicleClass?->hourly_rate;
+            $hours = $hours > 0 ? $hours : (float) $data['point_to_point_minimum_hours'];
+            $rate = (float) ($selectedHourlyRate ?? 0);
+            $units = $hours;
+            $pricingMethod = $isPeak ? 'round_trip_peak_hourly' : 'round_trip_hourly';
+            $available = $selectedHourlyRate !== null;
+            $unavailableReason = $available ? null : 'Hourly rate is not configured for this vehicle class';
+        } else {
+            switch ($serviceType) {
+                case 'hourly':
+                    $pickupDay = Carbon::parse($data['pickup_time'])->englishDayOfWeek;
+                    $isPeak = in_array(strtolower($pickupDay), $data['peak_days'], true)
+                        && $vehicleClass?->peak_hourly_rate !== null;
+                    $selectedHourlyRate = $isPeak ? $vehicleClass?->peak_hourly_rate : $vehicleClass?->hourly_rate;
+                    $rate = (float) ($selectedHourlyRate ?? 0);
+                    $units = $hours;
+                    $pricingMethod = $isPeak ? 'peak_hourly' : 'hourly';
+                    $available = $selectedHourlyRate !== null;
                     $unavailableReason = $available ? null : 'Hourly rate is not configured for this vehicle class';
-                } else {
-                    $rate = (float) ($vehicleClass->per_km_rate ?? 0);
-                    $units = $distanceKm;
-                    $pricingMethod = 'distance';
-                    $available = $vehicleClass->per_km_rate !== null;
-                    $unavailableReason = $available ? null : 'Distance rate is not configured for this vehicle class';
-                }
-                break;
+                    break;
+                case 'airport':
+                    $airportRate = $vehicleClass?->airportRates()
+                        ->where('airport_id', $data['airport_id'])
+                        ->where('service_zone', 'Manhattan')
+                        ->first();
+                    $available = $airportRate !== null;
+                    $unavailableReason = $available ? null : 'Airport rate is not configured for this vehicle class';
+                    $rate = (float) ($airportRate?->rate ?? 0);
+                    $units = 1;
+                    $pricingMethod = 'airport_flat_rate';
+                    break;
+                case 'custom':
+                    if ($this->usesFixedKmRate($vehicleClass, $distanceKm)) {
+                        $rate = (float) $vehicleClass->fixed_km_rate;
+                        $units = 1;
+                        $pricingMethod = 'fixed_km_rate';
+                    } else {
+                        $rate = (float) ($vehicleClass?->per_km_rate ?? 0);
+                        $units = $distanceKm;
+                        $pricingMethod = 'distance';
+                        $available = $vehicleClass?->per_km_rate !== null;
+                        $unavailableReason = $available ? null : 'Distance rate is not configured for this vehicle class';
+                    }
+                    break;
+                case 'point_to_point':
+                default:
+                    if ($this->usesFixedKmRate($vehicleClass, $distanceKm)) {
+                        $rate = (float) $vehicleClass->fixed_km_rate;
+                        $units = 1;
+                        $pricingMethod = 'fixed_km_rate';
+                    } elseif ($vehicleClass?->point_to_point_rate === null) {
+                        $rate = (float) ($vehicleClass?->per_km_rate ?? 0);
+                        $units = $distanceKm;
+                        $pricingMethod = 'distance';
+                        $available = $vehicleClass?->per_km_rate !== null;
+                        $unavailableReason = $available ? null : 'Point-to-point rate is not configured for this vehicle class';
+                    } elseif ($distanceKm <= $data['short_distance_limit_km']) {
+                        $rate = (float) $vehicleClass->point_to_point_rate;
+                        $units = 1;
+                        $pricingMethod = 'point_to_point_flat';
+                    } elseif ($distanceKm <= $data['distance_rate_start_km']) {
+                        $rate = (float) ($vehicleClass->hourly_rate ?? 0);
+                        $units = (float) $data['point_to_point_minimum_hours'];
+                        $pricingMethod = 'point_to_point_minimum_hours';
+                        $available = $vehicleClass->hourly_rate !== null;
+                        $unavailableReason = $available ? null : 'Hourly rate is not configured for this vehicle class';
+                    } else {
+                        $rate = (float) ($vehicleClass->per_km_rate ?? 0);
+                        $units = $distanceKm;
+                        $pricingMethod = 'distance';
+                        $available = $vehicleClass->per_km_rate !== null;
+                        $unavailableReason = $available ? null : 'Distance rate is not configured for this vehicle class';
+                    }
+                    break;
+            }
         }
 
         $cancellationFee = $status === 'cancelled' ? $configuredCancellationFee : 0;
@@ -2003,6 +2031,8 @@ class BookingController extends Controller
             'status' => (string) ($data->status ?? ''),
             'airport_id' => $data->airport_id ?? null,
             'pickup_time' => $data->pickup_time,
+            'pickup_address' => $data->pickup_address ?? null,
+            'dropoff_address' => $data->dropoff_address ?? null,
             'short_distance_limit_km' => (float) ($config->short_distance_limit_km ?? 16.09),
             'distance_rate_start_km' => (float) ($config->distance_rate_start_km ?? 32.19),
             'point_to_point_minimum_hours' => (float) ($config->point_to_point_minimum_hours ?? 2),
@@ -2020,6 +2050,13 @@ class BookingController extends Controller
             'airport_fees' => (float) ($data->airport_fees ?? 0),
             'congestion_charge' => (float) ($data->congestion_charge ?? 0),
         ];
+    }
+
+    private function usesFixedKmRate(?VehicleClass $vehicleClass, float $distanceKm): bool
+    {
+        return $vehicleClass?->fixed_km_rate !== null
+            && $vehicleClass->fixed_km_limit !== null
+            && $distanceKm <= (float) $vehicleClass->fixed_km_limit;
     }
 
     private function buildCalculationBreakdown(?array $priceCalculation): ?array
