@@ -1,27 +1,27 @@
 <?php
 
-use App\Http\Controllers\VehicleClassController;
-use App\Http\Controllers\UserController;
 use App\Http\Controllers\AffiliateclickController;
 use App\Http\Controllers\AffiliateController;
-use App\Http\Controllers\AirportController;
 use App\Http\Controllers\AffiliateDriverController;
-use App\Http\Controllers\FormsubmissionController;
-use App\Http\Controllers\FormtemplateController;
+use App\Http\Controllers\AffiliateSettlementController;
+use App\Http\Controllers\AirportController;
 use App\Http\Controllers\BookingController;
-use App\Http\Controllers\QuickReceiptController;
+use App\Http\Controllers\BookingLiveLocationController;
+use App\Http\Controllers\BookingPaymentController;
+use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DriverController;
-use App\Http\Controllers\VehicleController;
-use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\FormsubmissionController;
+use App\Http\Controllers\FormtemplateController;
+use App\Http\Controllers\PublicTripController;
+use App\Http\Controllers\QuickReceiptController;
 use App\Http\Controllers\SystemConfigController;
-use App\Http\Controllers\BookingPaymentController;
-use App\Http\Controllers\BookingLiveLocationController;
-use App\Http\Controllers\AffiliateSettlementController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\VehicleClassController;
+use App\Http\Controllers\VehicleController;
+use Illuminate\Broadcasting\BroadcastController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Broadcasting\BroadcastController;
-
 
 // User login is public. Initial admins are created with `php artisan user:create-admin`.
 Route::post('user/login', [UserController::class, 'login']);
@@ -85,6 +85,13 @@ Route::middleware(['auth:sanctum', 'abilities:driver'])->post('driver/bookings/{
 Route::middleware(['auth:sanctum', 'abilities:driver'])->post('driver/bookings/{id}/location', [BookingLiveLocationController::class, 'updateFromDriver']);
 Route::middleware(['auth:sanctum', 'abilities:driver'])->post('driver/logout', [DriverController::class, 'logout']);
 Route::middleware(['auth:sanctum', 'abilities:driver'])->post('driver/update-password', [DriverController::class, 'updatePassword']);
+
+Route::middleware('throttle:120,1')->prefix('public')->group(function (): void {
+    Route::get('driver-trips/{token}', [PublicTripController::class, 'driverData']);
+    Route::post('driver-trips/{token}/status', [PublicTripController::class, 'updateDriverStatus']);
+    Route::post('driver-trips/{token}/location', [PublicTripController::class, 'updateLocation']);
+    Route::get('trip-tracking/{token}', [PublicTripController::class, 'trackingData']);
+});
 
 // Customer auth routes (abilities-based)
 Route::post('customer/register', [CustomerController::class, 'register']);
@@ -152,7 +159,6 @@ Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('affilia
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('affiliates/{id}', [AffiliateController::class, 'show']);
 // Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('affiliates/update/{id}', [AffiliateController::class, 'update']);
 // Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->delete('affiliates/{id}', [AffiliateController::class, 'destroy']);
-
 
 // Affiliate auth route
 Route::post('affiliate/login', [AffiliateController::class, 'login']);

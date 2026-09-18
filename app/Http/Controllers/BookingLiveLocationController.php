@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Events\BookingLocationUpdated;
+use App\Events\PublicBookingLocationUpdated;
 use App\Models\Booking;
+use App\Models\BookingAccessLink;
 use App\Models\BookingLiveLocation;
 use App\Models\Company;
 use App\Models\Driver;
@@ -65,7 +67,7 @@ class BookingLiveLocationController extends Controller
             ]
         );
 
-        broadcast(new BookingLocationUpdated((int) $booking->id, [
+        $payload = [
             'booking_id' => (int) $booking->id,
             'driver_id' => (int) $driver->id,
             'latitude' => (float) $location->latitude,
@@ -74,7 +76,16 @@ class BookingLiveLocationController extends Controller
             'speed' => $location->speed,
             'accuracy' => $location->accuracy,
             'recorded_at' => optional($location->recorded_at)->toISOString(),
-        ]))->toOthers();
+        ];
+        broadcast(new BookingLocationUpdated((int) $booking->id, $payload))->toOthers();
+
+        $trackingLink = BookingAccessLink::active()
+            ->where('booking_id', $booking->id)
+            ->where('type', BookingAccessLink::CUSTOMER)
+            ->first();
+        if ($trackingLink?->channel_key) {
+            broadcast(new PublicBookingLocationUpdated($trackingLink->channel_key, $payload))->toOthers();
+        }
 
         return response()->json([
             'message' => 'Location updated',

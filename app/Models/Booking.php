@@ -132,6 +132,11 @@ class Booking extends Model
         return $this->hasMany(BookingActivity::class);
     }
 
+    public function accessLinks()
+    {
+        return $this->hasMany(BookingAccessLink::class);
+    }
+
     public function settlement()
     {
         return $this->hasOne(AffiliateBookingSettlement::class);

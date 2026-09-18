@@ -1,9 +1,10 @@
 <?php
 
+use App\Http\Controllers\PublicTripController;
+use App\Models\Company;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
-use App\Models\Company;
 
 Route::get('/', function () {
     return redirect()->route('admin.login');
@@ -20,6 +21,10 @@ Route::get('/admin/dashboard', function () {
         'company' => Company::query()->first(['name', 'logo']),
     ]);
 })->name('admin.dashboard');
+
+Route::get('/driver-trip/{token}', [PublicTripController::class, 'driverPage'])->name('public.driver-trip');
+Route::get('/track-trip/{token}', [PublicTripController::class, 'trackingPage'])->name('public.track-trip');
+Route::get('/trip-receipt/{token}', [PublicTripController::class, 'receiptPage'])->name('public.trip-receipt');
 
 Route::get('/maintenance/clear', function (Request $request) {
     // $expectedKey = (string) env('MAINTENANCE_KEY', '');

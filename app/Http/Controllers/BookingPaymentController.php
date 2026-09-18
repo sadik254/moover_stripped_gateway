@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\BookingPaymentReceiptMail;
 use App\Models\Affiliate;
 use App\Models\AffiliateBookingSettlement;
 use App\Models\Booking;
+use App\Models\BookingAccessLink;
 use App\Models\BookingPayment;
 use App\Models\Company;
 use App\Models\Customer;
@@ -12,6 +14,7 @@ use App\Models\SystemConfig;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Stripe\Exception\ApiErrorException;
@@ -108,6 +111,10 @@ class BookingPaymentController extends Controller
                 }
 
                 $booking->save();
+
+                if ($event->type === 'payment_intent.succeeded') {
+                    $this->sendPublicReceipt($booking, $payment);
+                }
             }
         }
 
@@ -316,6 +323,10 @@ class BookingPaymentController extends Controller
             $booking->payment_status = $capturedIntent->status === 'succeeded' ? 'paid' : $capturedIntent->status;
             $booking->save();
 
+            if ($capturedIntent->status === 'succeeded') {
+                $this->sendPublicReceipt($booking, $payment);
+            }
+
             if (
                 $booking->affiliate_id &&
                 in_array((string) $booking->affiliate_status, ['accepted', 'in_progress', 'completed'], true)
@@ -374,6 +385,39 @@ class BookingPaymentController extends Controller
     private function companyId(): ?int
     {
         return Company::query()->value('id');
+    }
+
+    private function sendPublicReceipt(Booking $booking, BookingPayment $payment): void
+    {
+        $email = $booking->email ?: $booking->customer?->email;
+        if (! $email) {
+            return;
+        }
+
+        $issued = BookingAccessLink::issueIfMissing(
+            $booking,
+            BookingAccessLink::RECEIPT
+        );
+        if (! $issued) {
+            return;
+        }
+
+        [$link, $token] = $issued;
+        try {
+            Mail::to($email)->send(new BookingPaymentReceiptMail(
+                $booking->loadMissing(['company', 'customer', 'latestPayment', 'stops']),
+                $payment,
+                route('public.trip-receipt', ['token' => $token])
+            ));
+        } catch (\Throwable $exception) {
+            // Allow a later successful payment event/capture retry to send a fresh link.
+            $link->delete();
+            Log::warning('Booking payment receipt email failed', [
+                'booking_id' => $booking->id,
+                'email' => $email,
+                'error' => $exception->getMessage(),
+            ]);
+        }
     }
 
     private function canAccessBooking($authUser, Booking $booking, bool $allowCustomer = true): bool

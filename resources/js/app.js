@@ -56,7 +56,7 @@ const bookingEditFields = [
     field('vehicle_class_id', 'Vehicle class', 'select', { lookup: 'vehicle-classes', required: true }),
     field('driver_id', 'Driver', 'select', { lookup: 'drivers' }),
     field('vehicle_id', 'Dispatch vehicle (optional)', 'select', { lookup: 'vehicles' }),
-    field('status', 'Status', 'select', { choices: ['pending', 'confirmed', 'assigned', 'on_route', 'completed', 'cancelled', 'done'] }),
+    field('status', 'Status', 'select', { choices: ['pending', 'confirmed', 'assigned', 'picking_up', 'on_route', 'completed', 'cancelled', 'done'] }),
 ];
 
 const resourceConfig = {
@@ -346,7 +346,7 @@ const bootDashboard = async () => {
         const edit = event.target.closest('[data-edit]'); if (edit) { const view = edit.dataset.edit === 'vehicle-class' ? 'vehicle-classes' : `${edit.dataset.edit}s`; const record = (state.resources[view] || []).find((item) => String(item.id) === edit.dataset.id); return openDialog(edit.dataset.edit, record); }
         const finalize = event.target.closest('[data-finalize]'); if (finalize) { const record = (state.resources.bookings || []).find((item) => String(item.id) === finalize.dataset.finalize); return openDialog('finalization', record); }
         const capture = event.target.closest('[data-capture]'); if (capture && confirm('Capture the finalized amount from this authorization?')) { try { await request(`${page.dataset.apiBase}/bookings/${capture.dataset.capture}/payment/capture`, state.token, { method: 'POST' }); notify('Payment captured successfully.'); await loadResource('bookings'); } catch (error) { notify(error.message, true); } return; }
-        const status = event.target.closest('[data-booking-status]'); if (status) { const value = prompt('New status: pending, confirmed, assigned, on_route, completed, cancelled or done'); if (value) { try { await request(`${page.dataset.apiBase}/bookings/${status.dataset.bookingStatus}/update-status`, state.token, jsonOptions({ status: value })); notify('Booking status updated.'); await loadResource('bookings'); } catch (error) { notify(error.message, true); } } }
+        const status = event.target.closest('[data-booking-status]'); if (status) { const value = prompt('New status: pending, confirmed, assigned, picking_up, on_route, completed, cancelled or done'); if (value) { try { await request(`${page.dataset.apiBase}/bookings/${status.dataset.bookingStatus}/update-status`, state.token, jsonOptions({ status: value })); notify('Booking status updated.'); await loadResource('bookings'); } catch (error) { notify(error.message, true); } } }
         const disburse = event.target.closest('[data-disburse]'); if (disburse && confirm('Send this affiliate disbursement through Stripe?')) { try { await request(`${page.dataset.apiBase}/affiliate-settlements/${disburse.dataset.disburse}/disburse`, state.token, jsonOptions({})); notify('Disbursement processed.'); await loadFinance(); } catch (error) { notify(error.message, true); } }
     });
     document.querySelectorAll('[data-search]').forEach((input) => input.addEventListener('input', () => renderRows(input.dataset.search, filteredRows(input.dataset.search))));

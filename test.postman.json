@@ -81,6 +81,21 @@
       "type": "string"
     },
     {
+      "key": "driver_trip_token",
+      "value": "paste-token-from-driver-assignment-email",
+      "type": "string"
+    },
+    {
+      "key": "customer_tracking_token",
+      "value": "paste-token-from-customer-tracking-email",
+      "type": "string"
+    },
+    {
+      "key": "receipt_token",
+      "value": "paste-token-from-payment-receipt-email",
+      "type": "string"
+    },
+    {
       "key": "storage_path",
       "value": "example.jpg",
       "type": "string"
@@ -1020,7 +1035,24 @@
           }
         },
         {
-          "name": "Driver Update Booking Status",
+          "name": "Driver Status — Picking Up",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"picking_up\"\n}"
+            },
+            "url": "{{api_url}}/driver/bookings/{{booking_id}}/status"
+          }
+        },
+        {
+          "name": "Driver Status — On Route",
           "request": {
             "method": "POST",
             "header": [
@@ -1032,6 +1064,23 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"status\": \"on_route\"\n}"
+            },
+            "url": "{{api_url}}/driver/bookings/{{booking_id}}/status"
+          }
+        },
+        {
+          "name": "Driver Status — Done",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"done\"\n}"
             },
             "url": "{{api_url}}/driver/bookings/{{booking_id}}/status"
           }
@@ -2191,6 +2240,94 @@
           "request": {
             "method": "GET",
             "url": "{{api_url}}/affiliate/disbursements?status=paid&per_page=20"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Passwordless Trip Links",
+      "description": "These endpoints do not use Bearer authentication. Copy the generated tokens from the driver assignment, customer tracking, and payment receipt emails into the collection variables.",
+      "auth": {
+        "type": "noauth"
+      },
+      "item": [
+        {
+          "name": "Get Driver Trip Controls",
+          "request": {
+            "method": "GET",
+            "url": "{{api_url}}/public/driver-trips/{{driver_trip_token}}"
+          }
+        },
+        {
+          "name": "Update Driver Trip Status",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{api_url}}/public/driver-trips/{{driver_trip_token}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"picking_up\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Update Driver Live Location",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{api_url}}/public/driver-trips/{{driver_trip_token}}/location",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitude\": 40.7128,\n  \"longitude\": -74.006,\n  \"accuracy\": 8.5,\n  \"heading\": 180,\n  \"speed\": 12.5,\n  \"recorded_at\": \"2026-09-18T12:00:00Z\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Get Customer Trip Tracking",
+          "request": {
+            "method": "GET",
+            "url": "{{api_url}}/public/trip-tracking/{{customer_tracking_token}}"
+          }
+        },
+        {
+          "name": "Open Driver Trip Page",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/driver-trip/{{driver_trip_token}}"
+          }
+        },
+        {
+          "name": "Open Customer Tracking Page",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/track-trip/{{customer_tracking_token}}"
+          }
+        },
+        {
+          "name": "Open Payment Receipt Page",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/trip-receipt/{{receipt_token}}"
           }
         }
       ]

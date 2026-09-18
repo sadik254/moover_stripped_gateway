@@ -33,7 +33,7 @@ class DriverController extends Controller
 
         if (! $company) {
             return response()->json([
-                'message' => 'Company not found'
+                'message' => 'Company not found',
             ], 404);
         }
 
@@ -44,7 +44,7 @@ class DriverController extends Controller
             ->count();
 
         $onTripDrivers = Booking::where('company_id', $company->id)
-            ->whereIn('status', ['assigned', 'on_route', 'in_progress'])
+            ->whereIn('status', ['assigned', 'picking_up', 'on_route', 'in_progress'])
             ->whereNotNull('driver_id')
             ->distinct('driver_id')
             ->count('driver_id');
@@ -75,7 +75,7 @@ class DriverController extends Controller
 
         if (! $company) {
             return response()->json([
-                'message' => 'Company not found'
+                'message' => 'Company not found',
             ], 404);
         }
 
@@ -83,7 +83,7 @@ class DriverController extends Controller
             ->orderByDesc('id')
             ->get();
 
-        $fileName = 'drivers_export_' . now()->format('Ymd_His') . '.csv';
+        $fileName = 'drivers_export_'.now()->format('Ymd_His').'.csv';
 
         return response()->streamDownload(function () use ($drivers): void {
             $handle = fopen('php://output', 'w');
@@ -142,7 +142,7 @@ class DriverController extends Controller
 
         if (! $company) {
             return response()->json([
-                'message' => 'Company not found'
+                'message' => 'Company not found',
             ], 404);
         }
 
@@ -153,7 +153,7 @@ class DriverController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'message' => 'Validation failed',
-                'errors'  => $validator->errors(),
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -164,7 +164,7 @@ class DriverController extends Controller
             ->withQueryString();
 
         return response()->json([
-            'data' => $drivers
+            'data' => $drivers,
         ]);
     }
 
@@ -174,7 +174,7 @@ class DriverController extends Controller
 
         if (! $company) {
             return response()->json([
-                'message' => 'Company not found'
+                'message' => 'Company not found',
             ], 404);
         }
 
@@ -184,25 +184,25 @@ class DriverController extends Controller
                 Rule::exists('vehicles', 'id')
                     ->where('company_id', $company->id),
             ],
-            'name'             => 'required|string|max:255',
-            'email'            => 'required|email|max:255|unique:drivers,email',
-            'phone'            => 'required|string|max:255',
-            'license_number'   => 'required|string|max:255',
-            'license_expiry'   => 'nullable|date',
-            'status'           => 'nullable|string|max:50',
-            'employment_type'  => 'nullable|string|max:50',
-            'commission'       => 'nullable|string|max:50',
-            'license_front'    => 'nullable|file|image|max:5120',
-            'license_back'     => 'nullable|file|image|max:5120',
-            'address'          => 'nullable|string',
-            'photo'            => 'nullable|file|image|max:5120',
-            'available'        => 'nullable|boolean',
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255|unique:drivers,email',
+            'phone' => 'required|string|max:255',
+            'license_number' => 'required|string|max:255',
+            'license_expiry' => 'nullable|date',
+            'status' => 'nullable|string|max:50',
+            'employment_type' => 'nullable|string|max:50',
+            'commission' => 'nullable|string|max:50',
+            'license_front' => 'nullable|file|image|max:5120',
+            'license_back' => 'nullable|file|image|max:5120',
+            'address' => 'nullable|string',
+            'photo' => 'nullable|file|image|max:5120',
+            'available' => 'nullable|boolean',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'message' => 'Validation failed',
-                'errors'  => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -271,7 +271,7 @@ class DriverController extends Controller
 
         return response()->json([
             'message' => 'Driver created successfully',
-            'data'    => $driver
+            'data' => $driver,
         ], 201);
     }
 
@@ -384,7 +384,7 @@ class DriverController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'status' => ['required', Rule::in(['on_route', 'done'])],
+            'status' => ['required', Rule::in(['picking_up', 'on_route', 'done'])],
         ]);
 
         if ($validator->fails()) {
@@ -400,6 +400,25 @@ class DriverController extends Controller
 
         if (! $booking) {
             return response()->json(['message' => 'Booking not found'], 404);
+        }
+
+        $allowedTransitions = [
+            'assigned' => 'picking_up',
+            'picking_up' => 'on_route',
+            'on_route' => 'done',
+        ];
+        $expectedStatus = $allowedTransitions[(string) $booking->status] ?? null;
+
+        if ($expectedStatus === null || (string) $request->status !== $expectedStatus) {
+            return response()->json([
+                'message' => $expectedStatus
+                    ? "Driver must update this booking to {$expectedStatus} next"
+                    : 'Driver cannot update a booking in its current status',
+                'data' => [
+                    'current_status' => $booking->status,
+                    'expected_status' => $expectedStatus,
+                ],
+            ], 422);
         }
 
         $booking->status = (string) $request->status;
@@ -420,7 +439,7 @@ class DriverController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'status' => ['sometimes', 'nullable', Rule::in(['pending', 'confirmed', 'assigned', 'on_route', 'completed', 'cancelled'])],
+            'status' => ['sometimes', 'nullable', Rule::in(['pending', 'confirmed', 'assigned', 'picking_up', 'on_route', 'completed', 'cancelled', 'done'])],
             'per_page' => 'sometimes|integer|min:1|max:100',
         ]);
 
@@ -533,7 +552,7 @@ class DriverController extends Controller
 
         if (! $company) {
             return response()->json([
-                'message' => 'Company not found'
+                'message' => 'Company not found',
             ], 404);
         }
 
@@ -543,12 +562,12 @@ class DriverController extends Controller
 
         if (! $driver) {
             return response()->json([
-                'message' => 'Driver not found'
+                'message' => 'Driver not found',
             ], 404);
         }
 
         return response()->json([
-            'data' => $driver
+            'data' => $driver,
         ]);
     }
 
@@ -558,7 +577,7 @@ class DriverController extends Controller
 
         if (! $company) {
             return response()->json([
-                'message' => 'Company not found'
+                'message' => 'Company not found',
             ], 404);
         }
 
@@ -568,7 +587,7 @@ class DriverController extends Controller
 
         if (! $driver) {
             return response()->json([
-                'message' => 'Driver not found'
+                'message' => 'Driver not found',
             ], 404);
         }
 
@@ -579,31 +598,31 @@ class DriverController extends Controller
                 Rule::exists('vehicles', 'id')
                     ->where('company_id', $company->id),
             ],
-            'name'             => 'sometimes|required|string|max:255',
-            'email'            => [
+            'name' => 'sometimes|required|string|max:255',
+            'email' => [
                 'sometimes',
                 'required',
                 'email',
                 'max:255',
                 Rule::unique('drivers', 'email')->ignore($driver->id),
             ],
-            'phone'            => 'sometimes|required|string|max:255',
-            'license_number'   => 'sometimes|required|string|max:255',
-            'license_expiry'   => 'sometimes|nullable|date',
-            'status'           => 'sometimes|nullable|string|max:50',
-            'employment_type'  => 'sometimes|nullable|string|max:50',
-            'commission'       => 'sometimes|nullable|string|max:50',
-            'license_front'    => 'sometimes|nullable|file|image|max:5120',
-            'license_back'     => 'sometimes|nullable|file|image|max:5120',
-            'address'          => 'sometimes|nullable|string',
-            'photo'            => 'sometimes|nullable|file|image|max:5120',
-            'available'        => 'sometimes|nullable|boolean',
+            'phone' => 'sometimes|required|string|max:255',
+            'license_number' => 'sometimes|required|string|max:255',
+            'license_expiry' => 'sometimes|nullable|date',
+            'status' => 'sometimes|nullable|string|max:50',
+            'employment_type' => 'sometimes|nullable|string|max:50',
+            'commission' => 'sometimes|nullable|string|max:50',
+            'license_front' => 'sometimes|nullable|file|image|max:5120',
+            'license_back' => 'sometimes|nullable|file|image|max:5120',
+            'address' => 'sometimes|nullable|string',
+            'photo' => 'sometimes|nullable|file|image|max:5120',
+            'available' => 'sometimes|nullable|boolean',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'message' => 'Validation failed',
-                'errors'  => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -669,7 +688,7 @@ class DriverController extends Controller
 
         return response()->json([
             'message' => 'Driver updated successfully',
-            'data'    => $driver
+            'data' => $driver,
         ]);
     }
 
@@ -679,7 +698,7 @@ class DriverController extends Controller
 
         if (! $company) {
             return response()->json([
-                'message' => 'Company not found'
+                'message' => 'Company not found',
             ], 404);
         }
 
@@ -689,14 +708,14 @@ class DriverController extends Controller
 
         if (! $driver) {
             return response()->json([
-                'message' => 'Driver not found'
+                'message' => 'Driver not found',
             ], 404);
         }
 
         $driver->delete();
 
         return response()->json([
-            'message' => 'Driver deleted successfully'
+            'message' => 'Driver deleted successfully',
         ], 200);
     }
 
