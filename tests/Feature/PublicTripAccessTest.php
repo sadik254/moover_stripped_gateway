@@ -81,7 +81,14 @@ class PublicTripAccessTest extends TestCase
         ]);
         [, $receiptToken] = BookingAccessLink::issue($booking, BookingAccessLink::RECEIPT, null, now()->addDays(90));
         $this->get(route('public.trip-receipt', ['token' => $receiptToken]))
-            ->assertOk()->assertSee('USD 100.00')->assertSee('Notification Company');
+            ->assertOk()
+            ->assertSee('USD 100.00')
+            ->assertSee('Notification Company')
+            ->assertSee('Fare calculation')
+            ->assertSee('Trip fare')
+            ->assertSee('Authorized amount')
+            ->assertSee('USD 120.00')
+            ->assertSee('pi_public_receipt');
     }
 
     private function records(): array

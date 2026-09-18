@@ -143,10 +143,34 @@ class PublicTripController extends Controller
     public function receiptPage(string $token)
     {
         $link = BookingAccessLink::resolveToken($token, BookingAccessLink::RECEIPT);
-        $booking = $link?->booking?->load(['company', 'vehicleClass', 'latestPayment', 'stops']);
+        $booking = $link?->booking?->load(['company', 'customer', 'vehicleClass', 'airport', 'driver', 'vehicle', 'latestPayment', 'stops']);
         abort_unless($link && $booking, 404);
 
-        return view('public.trip_receipt', compact('booking'));
+        $payment = $booking->latestPayment;
+        $receiptTotal = (float) ($payment?->captured_amount ?? $booking->final_price ?? $booking->total_price ?? 0);
+        $subtotal = max(0, $receiptTotal
+            - (float) ($booking->taxes_amount ?? 0)
+            - (float) ($booking->gratuity_amount ?? 0)
+            - (float) ($booking->surge_rate_amount ?? 0)
+            - (float) ($booking->cancellation_fee ?? 0));
+        $tripFare = max(0, $subtotal
+            - (float) ($booking->base_price ?? 0)
+            - (float) ($booking->extras_price ?? 0)
+            - (float) ($booking->parking ?? 0)
+            - (float) ($booking->others ?? 0)
+            - (float) ($booking->airport_fees ?? 0)
+            - (float) ($booking->congestion_charge ?? 0)
+            - (float) ($booking->tolls ?? 0)
+            - (float) ($booking->extra_stop_amount ?? 0)
+            - (float) ($booking->waiting_time_amount ?? 0));
+
+        return view('public.trip_receipt', [
+            'booking' => $booking,
+            'payment' => $payment,
+            'currency' => strtoupper((string) ($payment?->currency ?: 'USD')),
+            'receiptTotal' => $receiptTotal,
+            'tripFare' => $tripFare,
+        ]);
     }
 
     private function resolveDriver(string $token): array
