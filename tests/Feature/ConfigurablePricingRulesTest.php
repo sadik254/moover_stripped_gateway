@@ -102,13 +102,9 @@ class ConfigurablePricingRulesTest extends TestCase
             ->assertJsonPath('data.data.0.stops.1.address', 'Second middle address');
     }
 
-    public function test_fixed_km_tier_and_same_address_round_trip_hourly_pricing(): void
+    public function test_same_address_with_middle_stops_uses_hourly_pricing(): void
     {
         [$vehicleClass] = $this->pricingSetup();
-        $vehicleClass->update([
-            'fixed_km_rate' => 75,
-            'fixed_km_limit' => 20,
-        ]);
 
         $basePayload = [
             'name' => 'Pricing Customer',
@@ -120,16 +116,6 @@ class ConfigurablePricingRulesTest extends TestCase
             'passengers' => 2,
             'bags' => 1,
         ];
-
-        $this->postJson('/api/bookings', $basePayload + ['distance_km' => 15])
-            ->assertOk()
-            ->assertJsonPath('data.vehicle_class_options.0.pricing_method', 'fixed_km_rate')
-            ->assertJsonPath('data.vehicle_class_options.0.calculation.trip_fare', 75);
-
-        $this->postJson('/api/bookings', $basePayload + ['distance_km' => 25])
-            ->assertOk()
-            ->assertJsonPath('data.vehicle_class_options.0.pricing_method', 'point_to_point_minimum_hours')
-            ->assertJsonPath('data.vehicle_class_options.0.calculation.trip_fare', 200);
 
         $this->postJson('/api/bookings', array_merge($basePayload, [
             'pickup_address' => 'Manhattan',

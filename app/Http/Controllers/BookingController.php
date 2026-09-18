@@ -1919,25 +1919,15 @@ class BookingController extends Controller
                     $pricingMethod = 'airport_flat_rate';
                     break;
                 case 'custom':
-                    if ($this->usesFixedKmRate($vehicleClass, $distanceKm)) {
-                        $rate = (float) $vehicleClass->fixed_km_rate;
-                        $units = 1;
-                        $pricingMethod = 'fixed_km_rate';
-                    } else {
-                        $rate = (float) ($vehicleClass?->per_km_rate ?? 0);
-                        $units = $distanceKm;
-                        $pricingMethod = 'distance';
-                        $available = $vehicleClass?->per_km_rate !== null;
-                        $unavailableReason = $available ? null : 'Distance rate is not configured for this vehicle class';
-                    }
+                    $rate = (float) ($vehicleClass?->per_km_rate ?? 0);
+                    $units = $distanceKm;
+                    $pricingMethod = 'distance';
+                    $available = $vehicleClass?->per_km_rate !== null;
+                    $unavailableReason = $available ? null : 'Distance rate is not configured for this vehicle class';
                     break;
                 case 'point_to_point':
                 default:
-                    if ($this->usesFixedKmRate($vehicleClass, $distanceKm)) {
-                        $rate = (float) $vehicleClass->fixed_km_rate;
-                        $units = 1;
-                        $pricingMethod = 'fixed_km_rate';
-                    } elseif ($vehicleClass?->point_to_point_rate === null) {
+                    if ($vehicleClass?->point_to_point_rate === null) {
                         $rate = (float) ($vehicleClass?->per_km_rate ?? 0);
                         $units = $distanceKm;
                         $pricingMethod = 'distance';
@@ -2050,13 +2040,6 @@ class BookingController extends Controller
             'airport_fees' => (float) ($data->airport_fees ?? 0),
             'congestion_charge' => (float) ($data->congestion_charge ?? 0),
         ];
-    }
-
-    private function usesFixedKmRate(?VehicleClass $vehicleClass, float $distanceKm): bool
-    {
-        return $vehicleClass?->fixed_km_rate !== null
-            && $vehicleClass->fixed_km_limit !== null
-            && $distanceKm <= (float) $vehicleClass->fixed_km_limit;
     }
 
     private function buildCalculationBreakdown(?array $priceCalculation): ?array
