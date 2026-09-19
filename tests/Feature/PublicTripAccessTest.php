@@ -38,7 +38,12 @@ class PublicTripAccessTest extends TestCase
         });
         $driverToken = basename(parse_url($driverUrl, PHP_URL_PATH));
 
-        $this->get($driverUrl)->assertOk()->assertSee('Notification Company')->assertSee('#'.$booking->id);
+        $this->get($driverUrl)
+            ->assertOk()
+            ->assertSee('Notification Company')
+            ->assertSee('#'.$booking->id)
+            ->assertSee('navigator.wakeLock', false)
+            ->assertSee("request('screen')", false);
         $this->getJson("/api/public/driver-trips/{$driverToken}")
             ->assertOk()->assertJsonPath('data.next_status', 'picking_up');
         $this->postJson("/api/public/driver-trips/{$driverToken}/status", ['status' => 'picking_up'])
