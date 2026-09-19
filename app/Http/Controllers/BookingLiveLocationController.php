@@ -41,7 +41,7 @@ class BookingLiveLocationController extends Controller
         $validator = Validator::make($request->all(), [
             'latitude' => 'required|numeric|between:-90,90',
             'longitude' => 'required|numeric|between:-180,180',
-            'heading' => 'sometimes|nullable|integer|min:0|max:360',
+            'heading' => 'sometimes|nullable|numeric|between:0,360',
             'speed' => 'sometimes|nullable|numeric|min:0|max:1000',
             'accuracy' => 'sometimes|nullable|numeric|min:0|max:10000',
             'recorded_at' => 'sometimes|nullable|date',
@@ -60,7 +60,7 @@ class BookingLiveLocationController extends Controller
                 'driver_id' => (int) $driver->id,
                 'latitude' => (float) $request->latitude,
                 'longitude' => (float) $request->longitude,
-                'heading' => $request->heading,
+                'heading' => $request->heading !== null ? (int) round((float) $request->heading) : null,
                 'speed' => $request->speed,
                 'accuracy' => $request->accuracy,
                 'recorded_at' => $request->recorded_at ? Carbon::parse($request->recorded_at) : now(),

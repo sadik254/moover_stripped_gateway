@@ -52,7 +52,8 @@ class PublicTripAccessTest extends TestCase
             'latitude' => 40.7128,
             'longitude' => -74.0060,
             'accuracy' => 8,
-        ])->assertOk();
+            'heading' => 127.4,
+        ])->assertOk()->assertJsonPath('data.heading', 127);
         $this->postJson("/api/public/driver-trips/{$driverToken}/status", ['status' => 'on_route'])
             ->assertOk()->assertJsonPath('data.next_status', 'done');
 
