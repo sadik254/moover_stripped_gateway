@@ -348,7 +348,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"tax_rate\":8.88,\"base_price_flat\":0,\"cancellation_fee\":25,\"surge_rate\":0,\"wait_time_rate\":90,\"rate_buffer\":20,\"gratuity_percentage\":20,\"currency\":\"usd\",\"service_zones\":[\"Manhattan\"],\"short_distance_limit_km\":16.09,\"distance_rate_start_km\":32.19,\"point_to_point_minimum_hours\":2,\"peak_days\":[\"friday\",\"saturday\"],\"extra_stop_fee\":40,\"extra_stop_minutes\":15,\"waiting_grace_minutes\":15,\"platform_name\":\"Moover Test\",\"primary_brand_color\":\"#0F766E\",\"secondary_brand_color\":\"#F59E0B\"}",
+              "raw": "{\"tax_rate\":8.88,\"base_price_flat\":0,\"cancellation_fee\":25,\"surge_rate\":0,\"wait_time_rate\":90,\"rate_buffer\":20,\"gratuity_percentage\":20,\"currency\":\"usd\",\"service_zones\":[\"Manhattan\"],\"short_distance_limit_miles\":16.09,\"distance_rate_start_miles\":32.19,\"point_to_point_minimum_hours\":2,\"peak_days\":[\"friday\",\"saturday\"],\"extra_stop_fee\":40,\"extra_stop_minutes\":15,\"waiting_grace_minutes\":15,\"platform_name\":\"Moover Test\",\"primary_brand_color\":\"#0F766E\",\"secondary_brand_color\":\"#F59E0B\"}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -370,7 +370,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"tax_rate\":8.88,\"base_price_flat\":0,\"cancellation_fee\":30,\"surge_rate\":0,\"wait_time_rate\":90,\"rate_buffer\":20,\"gratuity_percentage\":20,\"currency\":\"usd\",\"platform_name\":\"Moover Operations\",\"service_zones\":[\"Manhattan\"],\"short_distance_limit_km\":16.09,\"distance_rate_start_km\":32.19,\"point_to_point_minimum_hours\":2,\"peak_days\":[\"friday\",\"saturday\"],\"extra_stop_fee\":40,\"extra_stop_minutes\":15,\"waiting_grace_minutes\":15}",
+              "raw": "{\"tax_rate\":8.88,\"base_price_flat\":0,\"cancellation_fee\":30,\"surge_rate\":0,\"wait_time_rate\":90,\"rate_buffer\":20,\"gratuity_percentage\":20,\"currency\":\"usd\",\"platform_name\":\"Moover Operations\",\"service_zones\":[\"Manhattan\"],\"short_distance_limit_miles\":16.09,\"distance_rate_start_miles\":32.19,\"point_to_point_minimum_hours\":2,\"peak_days\":[\"friday\",\"saturday\"],\"extra_stop_fee\":40,\"extra_stop_minutes\":15,\"waiting_grace_minutes\":15}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -489,7 +489,7 @@
                   "type": "text"
                 },
                 {
-                  "key": "per_km_rate",
+                  "key": "per_mile_rate",
                   "value": "2.49",
                   "type": "text"
                 },
@@ -584,7 +584,7 @@
                   "type": "text"
                 },
                 {
-                  "key": "per_km_rate",
+                  "key": "per_mile_rate",
                   "value": "2.49",
                   "type": "text"
                 },

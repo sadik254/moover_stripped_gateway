@@ -146,7 +146,7 @@ class BookingFinalizationTest extends TestCase
             'name' => 'Standard',
             'capacity' => 4,
             'luggage' => 3,
-            'per_km_rate' => 2,
+            'per_mile_rate' => 2,
             'hourly_rate' => 20,
             'airport_rate' => 5,
         ]);
@@ -158,7 +158,7 @@ class BookingFinalizationTest extends TestCase
             'pickup_address' => 'Pickup',
             'pickup_time' => now(),
             'passengers' => 2,
-            'distance_km' => 100,
+            'distance_miles' => 100,
             'parking' => 0,
             'total_price' => 200,
             'final_price' => 200,

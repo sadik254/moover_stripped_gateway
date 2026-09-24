@@ -185,7 +185,7 @@ class BookingController extends Controller
                 'driver_name',
                 'vehicle_class_id',
                 'vehicle_class_name',
-                'distance_km',
+                'distance_miles',
                 'hours',
                 'total_price',
                 'final_price',
@@ -212,7 +212,7 @@ class BookingController extends Controller
                     $booking->driver?->name,
                     $booking->vehicle_class_id,
                     $booking->vehicleClass?->name,
-                    $booking->distance_km,
+                    $booking->distance_miles,
                     $booking->hours,
                     $booking->total_price,
                     $booking->final_price,
@@ -655,7 +655,7 @@ class BookingController extends Controller
             'bags' => 'nullable|integer|min:0',
             'flight_number' => 'nullable|string|max:100',
             'airlines' => 'nullable|string|max:100',
-            'distance_km' => [
+            'distance_miles' => [
                 Rule::requiredIf(fn () => in_array($request->service_type, ['point_to_point', 'custom'], true)),
                 'numeric',
                 'min:0',
@@ -739,7 +739,7 @@ class BookingController extends Controller
                     'luggage' => $vehicleClass->luggage,
                     'rate' => $priceCalculation['rate'],
                     'base_price' => $priceCalculation['base_price'],
-                    'distance_km' => $priceCalculation['distance_km'],
+                    'distance_miles' => $priceCalculation['distance_miles'],
                     'hours' => $priceCalculation['hours'],
                     'total_price' => $priceCalculation['total_price'],
                     'calculation' => $this->buildCalculationBreakdown($priceCalculation),
@@ -762,7 +762,7 @@ class BookingController extends Controller
                     'children' => $children,
                     'required_passenger_capacity' => $requiredPassengerCapacity,
                     'bags' => $bags,
-                    'distance_km' => (float) ($request->distance_km ?? 0),
+                    'distance_miles' => (float) ($request->distance_miles ?? 0),
                     'hours' => (float) ($request->hours ?? 0),
                     'airport' => $request->filled('airport_id') ? Airport::find($request->airport_id) : null,
                     'vehicle_class_options' => $vehicleClassOptions,
@@ -806,7 +806,7 @@ class BookingController extends Controller
                     'bags',
                     'flight_number',
                     'airlines',
-                    'distance_km',
+                    'distance_miles',
                     'hours',
                     'extra_stops',
                     'waiting_minutes',
@@ -1005,7 +1005,7 @@ class BookingController extends Controller
             'dropoff_address',
             'pickup_time',
             'dropoff_time',
-            'distance_km',
+            'distance_miles',
             'hours',
             'base_price',
             'extras_price',
@@ -1044,7 +1044,7 @@ class BookingController extends Controller
             'bags' => 'sometimes|nullable|integer|min:0',
             'flight_number' => 'sometimes|nullable|string|max:100',
             'airlines' => 'sometimes|nullable|string|max:100',
-            'distance_km' => [
+            'distance_miles' => [
                 'sometimes',
                 Rule::requiredIf(fn () => in_array($request->input('service_type', $booking->service_type), ['point_to_point', 'custom'], true)),
                 'numeric',
@@ -1131,7 +1131,7 @@ class BookingController extends Controller
                         'bags',
                         'flight_number',
                         'airlines',
-                        'distance_km',
+                        'distance_miles',
                         'hours',
                         'extra_stops',
                         'waiting_minutes',
@@ -1195,7 +1195,7 @@ class BookingController extends Controller
                 $recalc = ! $isCancelled && $request->hasAny([
                     'vehicle_class_id',
                     'service_type',
-                    'distance_km',
+                    'distance_miles',
                     'hours',
                     'airport_id',
                     'extra_stops',
@@ -1928,7 +1928,7 @@ class BookingController extends Controller
     private function calculatePrice(?VehicleClass $vehicleClass, array $data): array
     {
         $serviceType = $data['service_type'];
-        $distanceKm = (float) $data['distance_km'];
+        $distanceMiles = (float) $data['distance_miles'];
         $hours = (float) $data['hours'];
         $basePrice = (float) $data['base_price'];
         $extrasPrice = (float) $data['extras_price'];
@@ -1993,35 +1993,35 @@ class BookingController extends Controller
                     $pricingMethod = 'airport_flat_rate';
                     break;
                 case 'custom':
-                    $rate = (float) ($vehicleClass?->per_km_rate ?? 0);
-                    $units = $distanceKm;
+                    $rate = (float) ($vehicleClass?->per_mile_rate ?? 0);
+                    $units = $distanceMiles;
                     $pricingMethod = 'distance';
-                    $available = $vehicleClass?->per_km_rate !== null;
+                    $available = $vehicleClass?->per_mile_rate !== null;
                     $unavailableReason = $available ? null : 'Distance rate is not configured for this vehicle class';
                     break;
                 case 'point_to_point':
                 default:
                     if ($vehicleClass?->point_to_point_rate === null) {
-                        $rate = (float) ($vehicleClass?->per_km_rate ?? 0);
-                        $units = $distanceKm;
+                        $rate = (float) ($vehicleClass?->per_mile_rate ?? 0);
+                        $units = $distanceMiles;
                         $pricingMethod = 'distance';
-                        $available = $vehicleClass?->per_km_rate !== null;
+                        $available = $vehicleClass?->per_mile_rate !== null;
                         $unavailableReason = $available ? null : 'Point-to-point rate is not configured for this vehicle class';
-                    } elseif ($distanceKm <= $data['short_distance_limit_km']) {
+                    } elseif ($distanceMiles <= $data['short_distance_limit_miles']) {
                         $rate = (float) $vehicleClass->point_to_point_rate;
                         $units = 1;
                         $pricingMethod = 'point_to_point_flat';
-                    } elseif ($distanceKm <= $data['distance_rate_start_km']) {
+                    } elseif ($distanceMiles <= $data['distance_rate_start_miles']) {
                         $rate = (float) ($vehicleClass->hourly_rate ?? 0);
                         $units = (float) $data['point_to_point_minimum_hours'];
                         $pricingMethod = 'point_to_point_minimum_hours';
                         $available = $vehicleClass->hourly_rate !== null;
                         $unavailableReason = $available ? null : 'Hourly rate is not configured for this vehicle class';
                     } else {
-                        $rate = (float) ($vehicleClass->per_km_rate ?? 0);
-                        $units = $distanceKm;
+                        $rate = (float) ($vehicleClass->per_mile_rate ?? 0);
+                        $units = $distanceMiles;
                         $pricingMethod = 'distance';
-                        $available = $vehicleClass->per_km_rate !== null;
+                        $available = $vehicleClass->per_mile_rate !== null;
                         $unavailableReason = $available ? null : 'Distance rate is not configured for this vehicle class';
                     }
                     break;
@@ -2052,7 +2052,7 @@ class BookingController extends Controller
             'unavailable_reason' => $unavailableReason,
             'trip_fare' => $tripFare,
             'base_price' => $basePrice,
-            'distance_km' => $distanceKm,
+            'distance_miles' => $distanceMiles,
             'hours' => $hours,
             'extras_price' => $extrasPrice,
             'tax_rate' => $taxRate,
@@ -2083,7 +2083,7 @@ class BookingController extends Controller
     {
         return [
             'service_type' => $data->service_type,
-            'distance_km' => (float) ($data->distance_km ?? 0),
+            'distance_miles' => (float) ($data->distance_miles ?? 0),
             'hours' => (float) ($data->hours ?? 0),
             'base_price' => (float) ($config->base_price_flat ?? 0),
             'extras_price' => (float) ($data->extras_price ?? 0),
@@ -2097,8 +2097,8 @@ class BookingController extends Controller
             'pickup_time' => $data->pickup_time,
             'pickup_address' => $data->pickup_address ?? null,
             'dropoff_address' => $data->dropoff_address ?? null,
-            'short_distance_limit_km' => (float) ($config->short_distance_limit_km ?? 16.09),
-            'distance_rate_start_km' => (float) ($config->distance_rate_start_km ?? 32.19),
+            'short_distance_limit_miles' => (float) ($config->short_distance_limit_miles ?? 16.09),
+            'distance_rate_start_miles' => (float) ($config->distance_rate_start_miles ?? 32.19),
             'point_to_point_minimum_hours' => (float) ($config->point_to_point_minimum_hours ?? 2),
             'peak_days' => array_map('strtolower', $config->peak_days ?? ['friday', 'saturday']),
             'extra_stop_fee' => (float) ($config->extra_stop_fee ?? 40),
@@ -2188,7 +2188,7 @@ class BookingController extends Controller
         $booking->setAttribute('pricing_details', [
             'pricing_type' => $booking->service_type,
             'pricing_method' => $booking->pricing_method,
-            'distance_km' => $booking->distance_km !== null ? (float) $booking->distance_km : null,
+            'distance_miles' => $booking->distance_miles !== null ? (float) $booking->distance_miles : null,
             'hours' => $booking->hours !== null ? (float) $booking->hours : null,
             'base_price' => (float) ($booking->base_price ?? 0),
             'trip_fare' => round($tripFare, 2),
@@ -2233,10 +2233,10 @@ class BookingController extends Controller
         }
 
         $isHourly = ($priceCalculation['service_type'] ?? null) === 'hourly';
-        $billedField = $isHourly ? 'hours' : 'km';
+        $billedField = $isHourly ? 'hours' : 'miles';
         $billedValue = $isHourly
             ? (float) ($priceCalculation['hours'] ?? 0)
-            : (float) ($priceCalculation['distance_km'] ?? 0);
+            : (float) ($priceCalculation['distance_miles'] ?? 0);
 
         return [
             'rate' => $priceCalculation['rate'],
@@ -2499,7 +2499,7 @@ class BookingController extends Controller
             'unavailable_reason' => null,
             'trip_fare' => 0,
             'base_price' => 0,
-            'distance_km' => 0,
+            'distance_miles' => 0,
             'hours' => 0,
             'extras_price' => 0,
             'tax_rate' => 0,

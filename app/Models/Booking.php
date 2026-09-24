@@ -34,7 +34,7 @@ class Booking extends Model
         'bags',
         'flight_number',
         'airlines',
-        'distance_km',
+        'distance_miles',
         'hours',
         'extra_stops',
         'waiting_minutes',

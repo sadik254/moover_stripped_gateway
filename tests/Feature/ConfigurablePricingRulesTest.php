@@ -20,15 +20,15 @@ class ConfigurablePricingRulesTest extends TestCase
         [$vehicleClass, $airport] = $this->pricingSetup();
 
         $cases = [
-            ['payload' => ['service_type' => 'point_to_point', 'distance_km' => 10], 'method' => 'point_to_point_flat', 'fare' => 90, 'total' => 90],
-            ['payload' => ['service_type' => 'point_to_point', 'distance_km' => 20], 'method' => 'point_to_point_minimum_hours', 'fare' => 200, 'total' => 200],
-            ['payload' => ['service_type' => 'point_to_point', 'distance_km' => 40], 'method' => 'distance', 'fare' => 160, 'total' => 160],
+            ['payload' => ['service_type' => 'point_to_point', 'distance_miles' => 10], 'method' => 'point_to_point_flat', 'fare' => 90, 'total' => 90],
+            ['payload' => ['service_type' => 'point_to_point', 'distance_miles' => 20], 'method' => 'point_to_point_minimum_hours', 'fare' => 200, 'total' => 200],
+            ['payload' => ['service_type' => 'point_to_point', 'distance_miles' => 40], 'method' => 'distance', 'fare' => 160, 'total' => 160],
             ['payload' => ['service_type' => 'hourly', 'hours' => 2, 'pickup_time' => '2026-09-18 10:00:00'], 'method' => 'peak_hourly', 'fare' => 240, 'total' => 240],
             ['payload' => ['service_type' => 'airport', 'airport_id' => $airport->id], 'method' => 'airport_flat_rate', 'fare' => 150, 'total' => 150],
             [
                 'payload' => [
                     'service_type' => 'custom',
-                    'distance_km' => 10,
+                    'distance_miles' => 10,
                     'stops' => [['address' => 'First stop'], ['address' => 'Second stop']],
                     'waiting_minutes' => 30,
                     'tolls' => 10,
@@ -78,7 +78,7 @@ class ConfigurablePricingRulesTest extends TestCase
             'pickup_time' => '2026-09-16 10:00:00',
             'passengers' => 2,
             'bags' => 1,
-            'distance_km' => 10,
+            'distance_miles' => 10,
         ]);
 
         $response->assertCreated()
@@ -120,7 +120,7 @@ class ConfigurablePricingRulesTest extends TestCase
         $this->postJson('/api/bookings', array_merge($basePayload, [
             'pickup_address' => 'Manhattan',
             'dropoff_address' => ' manhattan ',
-            'distance_km' => 15,
+            'distance_miles' => 15,
             'hours' => 3,
             'stops' => [['address' => 'Brooklyn']],
         ]))->assertOk()
@@ -152,8 +152,8 @@ class ConfigurablePricingRulesTest extends TestCase
             'wait_time_rate' => 60,
             'waiting_grace_minutes' => 15,
             'extra_stop_fee' => 40,
-            'short_distance_limit_km' => 16.09,
-            'distance_rate_start_km' => 32.19,
+            'short_distance_limit_miles' => 16.09,
+            'distance_rate_start_miles' => 32.19,
             'point_to_point_minimum_hours' => 2,
             'peak_days' => ['friday', 'saturday'],
             'currency' => 'usd',
@@ -166,7 +166,7 @@ class ConfigurablePricingRulesTest extends TestCase
             'hourly_rate' => 100,
             'peak_hourly_rate' => 120,
             'point_to_point_rate' => 90,
-            'per_km_rate' => 4,
+            'per_mile_rate' => 4,
             'extra_stop_eligible' => true,
         ]);
         $airport = Airport::create([

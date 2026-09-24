@@ -24,7 +24,7 @@
             <div class="detail"><span>Service</span><strong>{{ ucwords(str_replace('_', ' ', $booking->service_type)) }}</strong></div>
             <div class="detail"><span>Vehicle class</span><strong>{{ $booking->vehicleClass?->name ?? 'Not provided' }}</strong></div>
             <div class="detail"><span>Trip status</span><strong>{{ ucwords(str_replace('_', ' ', $booking->status)) }}</strong></div>
-            @if ($booking->distance_km)<div class="detail"><span>Distance</span><strong>{{ number_format((float) $booking->distance_km, 2) }} km</strong></div>@endif
+            @if ($booking->distance_miles)<div class="detail"><span>Distance</span><strong>{{ number_format((float) $booking->distance_miles, 2) }} mi</strong></div>@endif
             @if ($booking->hours)<div class="detail"><span>Booked hours</span><strong>{{ number_format((float) $booking->hours, 2) }}</strong></div>@endif
             @if ($booking->airport)<div class="detail"><span>Airport</span><strong>{{ $booking->airport->code }} · {{ $booking->airport->name }}</strong></div>@endif
             @if ($booking->vehicle)<div class="detail"><span>Dispatched vehicle</span><strong>{{ $booking->vehicle->name }}{{ $booking->vehicle->plate_number ? ' · '.$booking->vehicle->plate_number : '' }}</strong></div>@endif

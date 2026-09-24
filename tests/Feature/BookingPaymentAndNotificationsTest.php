@@ -39,7 +39,7 @@ class BookingPaymentAndNotificationsTest extends TestCase
             'capacity' => 6,
             'luggage' => 4,
             'hourly_rate' => 40,
-            'per_km_rate' => 3.5,
+            'per_mile_rate' => 3.5,
             'airport_rate' => 8,
         ]);
 
@@ -49,7 +49,7 @@ class BookingPaymentAndNotificationsTest extends TestCase
             'capacity' => 2,
             'luggage' => 1,
             'hourly_rate' => 20,
-            'per_km_rate' => 2,
+            'per_mile_rate' => 2,
             'airport_rate' => 5,
         ]);
 
@@ -59,7 +59,7 @@ class BookingPaymentAndNotificationsTest extends TestCase
             'capacity' => 8,
             'luggage' => 6,
             'hourly_rate' => 55,
-            'per_km_rate' => 5,
+            'per_mile_rate' => 5,
             'airport_rate' => 12,
         ]);
 
@@ -77,7 +77,7 @@ class BookingPaymentAndNotificationsTest extends TestCase
             'passengers' => 4,
             'child_seats' => 2,
             'bags' => 2,
-            'distance_km' => 10,
+            'distance_miles' => 10,
         ];
 
         $quote = $this->postJson('/api/bookings', $payload);
@@ -99,7 +99,7 @@ class BookingPaymentAndNotificationsTest extends TestCase
 
         $response->assertCreated();
         $response->assertJsonPath('data.service_type', 'point_to_point');
-        $response->assertJsonPath('data.distance_km', 10);
+        $response->assertJsonPath('data.distance_miles', 10);
         $response->assertJsonPath('data.vehicle_class_id', $vehicleClass->id);
         $response->assertJsonPath('data.vehicle_id', null);
         $response->assertJsonPath('calculation.rate', 3.5);

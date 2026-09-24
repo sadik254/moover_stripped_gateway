@@ -19,7 +19,7 @@ class VehicleClass extends Model
         'hourly_rate',
         'peak_hourly_rate',
         'point_to_point_rate',
-        'per_km_rate',
+        'per_mile_rate',
         'airport_rate',
         'extra_stop_eligible',
     ];

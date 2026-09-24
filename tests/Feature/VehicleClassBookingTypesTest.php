@@ -48,7 +48,7 @@ class VehicleClassBookingTypesTest extends TestCase
             'capacity' => 4,
             'luggage' => 3,
             'hourly_rate' => 10,
-            'per_km_rate' => 2,
+            'per_mile_rate' => 2,
             'airport_rate' => 5,
         ]);
         $airport = Airport::create([
@@ -64,9 +64,9 @@ class VehicleClassBookingTypesTest extends TestCase
         ]);
 
         $cases = [
-            'point_to_point' => ['distance_km' => 10, 'rate' => 2, 'total' => 20],
-            'custom' => ['distance_km' => 10, 'rate' => 2, 'total' => 20],
-            'airport' => ['distance_km' => 10, 'airport_id' => $airport->id, 'rate' => 50, 'total' => 50],
+            'point_to_point' => ['distance_miles' => 10, 'rate' => 2, 'total' => 20],
+            'custom' => ['distance_miles' => 10, 'rate' => 2, 'total' => 20],
+            'airport' => ['distance_miles' => 10, 'airport_id' => $airport->id, 'rate' => 50, 'total' => 50],
             'hourly' => ['hours' => 3, 'rate' => 10, 'total' => 30],
         ];
 
@@ -79,7 +79,7 @@ class VehicleClassBookingTypesTest extends TestCase
                 'pickup_time' => '2026-12-15 10:00:00',
                 'passengers' => 2,
                 'bags' => 2,
-            ] + array_intersect_key($expectation, array_flip(['distance_km', 'hours', 'airport_id']));
+            ] + array_intersect_key($expectation, array_flip(['distance_miles', 'hours', 'airport_id']));
 
             $this->postJson('/api/bookings', $payload)
                 ->assertOk()
