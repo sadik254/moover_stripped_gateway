@@ -22,6 +22,7 @@ class VehicleClass extends Model
         'per_mile_rate',
         'airport_rate',
         'extra_stop_eligible',
+        'pricing_mode',
     ];
 
     public function company()

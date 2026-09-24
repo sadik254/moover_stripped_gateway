@@ -1950,6 +1950,8 @@ class BookingController extends Controller
         $isHourlyRoundTrip = $extraStops > 0
             && $pickupAddress !== ''
             && $pickupAddress === $dropoffAddress;
+        $isSprinterInclusive = $vehicleClass?->pricing_mode === 'sprinter_inclusive'
+            && in_array($serviceType, ['point_to_point', 'hourly', 'airport'], true);
 
         $rate = 0;
         $units = 0;
@@ -1959,7 +1961,16 @@ class BookingController extends Controller
         $available = true;
         $unavailableReason = null;
 
-        if ($isHourlyRoundTrip) {
+        if ($isSprinterInclusive) {
+            $rate = (float) ($vehicleClass?->hourly_rate ?? 0);
+            $units = $serviceType === 'hourly' ? max($hours, 4) : 4;
+            $hours = $units;
+            $pricingMethod = $serviceType === 'hourly'
+                ? 'sprinter_inclusive_hourly'
+                : "sprinter_inclusive_{$serviceType}";
+            $available = $vehicleClass?->hourly_rate !== null;
+            $unavailableReason = $available ? null : 'Hourly rate is not configured for this Sprinter vehicle class';
+        } elseif ($isHourlyRoundTrip) {
             $pickupDay = Carbon::parse($data['pickup_time'])->englishDayOfWeek;
             $isPeak = in_array(strtolower($pickupDay), $data['peak_days'], true)
                 && $vehicleClass?->peak_hourly_rate !== null;
@@ -2034,9 +2045,9 @@ class BookingController extends Controller
             : 0;
         $subtotal = $basePrice + $tripFare + $extrasPrice + $parking + $others + $airportFees
             + $congestionCharge + $tolls + $extraStopAmount + $waitingTimeAmount;
-        $surgeAmount = $subtotal * ($surgeRate / 100);
-        $taxesAmount = ($subtotal + $surgeAmount) * ($taxRate / 100);
-        $gratuityAmount = ($subtotal + $surgeAmount) * ($gratuityPercentage / 100);
+        $surgeAmount = $isSprinterInclusive ? 0 : $subtotal * ($surgeRate / 100);
+        $taxesAmount = $isSprinterInclusive ? 0 : ($subtotal + $surgeAmount) * ($taxRate / 100);
+        $gratuityAmount = $isSprinterInclusive ? 0 : ($subtotal + $surgeAmount) * ($gratuityPercentage / 100);
         $total = $subtotal + $surgeAmount + $taxesAmount + $gratuityAmount + $cancellationFee;
         $bufferAmount = $total * ($rateBuffer / 100);
         $authorizationAmount = $total + $bufferAmount;
@@ -2048,6 +2059,7 @@ class BookingController extends Controller
             'flat_fare' => $flatFare,
             'additional_miles' => $additionalMiles,
             'additional_miles_fare' => $units * $rate,
+            'tax_and_gratuity_included' => $isSprinterInclusive,
             'pricing_method' => $pricingMethod,
             'available' => $available,
             'unavailable_reason' => $unavailableReason,
@@ -2246,6 +2258,7 @@ class BookingController extends Controller
             'flat_fare' => $priceCalculation['flat_fare'] ?? 0,
             'additional_miles' => $priceCalculation['additional_miles'] ?? 0,
             'additional_miles_fare' => $priceCalculation['additional_miles_fare'] ?? 0,
+            'tax_and_gratuity_included' => $priceCalculation['tax_and_gratuity_included'] ?? false,
             $billedField => $billedValue,
             'base_price' => $priceCalculation['base_price'],
             'extras_price' => $priceCalculation['extras_price'],

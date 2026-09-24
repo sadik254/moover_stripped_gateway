@@ -51,6 +51,7 @@ class VehicleClassController extends Controller
             'per_mile_rate' => 'nullable|numeric|min:0',
             'airport_rate' => 'nullable|numeric|min:0',
             'extra_stop_eligible' => 'nullable|boolean',
+            'pricing_mode' => ['nullable', Rule::in(['standard', 'sprinter_inclusive'])],
             'airport_rates' => 'nullable|array',
             'airport_rates.*.airport_id' => ['required', Rule::exists('airports', 'id')->where('company_id', $company->id)],
             'airport_rates.*.rate' => 'required|numeric|min:0',
@@ -75,6 +76,7 @@ class VehicleClassController extends Controller
             'per_mile_rate',
             'airport_rate',
             'extra_stop_eligible',
+            'pricing_mode',
         ]);
 
         // Uploadcare image
@@ -168,6 +170,7 @@ class VehicleClassController extends Controller
             'per_mile_rate' => 'sometimes|nullable|numeric|min:0',
             'airport_rate' => 'sometimes|nullable|numeric|min:0',
             'extra_stop_eligible' => 'sometimes|boolean',
+            'pricing_mode' => ['sometimes', 'nullable', Rule::in(['standard', 'sprinter_inclusive'])],
             'airport_rates' => 'sometimes|array',
             'airport_rates.*.airport_id' => ['required', Rule::exists('airports', 'id')->where('company_id', $company->id)],
             'airport_rates.*.rate' => 'required|numeric|min:0',
@@ -210,6 +213,7 @@ class VehicleClassController extends Controller
                 'per_mile_rate',
                 'airport_rate',
                 'extra_stop_eligible',
+                'pricing_mode',
             ])
         );
 
