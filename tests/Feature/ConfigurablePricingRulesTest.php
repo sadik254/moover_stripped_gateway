@@ -21,8 +21,8 @@ class ConfigurablePricingRulesTest extends TestCase
 
         $cases = [
             ['payload' => ['service_type' => 'point_to_point', 'distance_miles' => 10], 'method' => 'point_to_point_flat', 'fare' => 90, 'total' => 90],
-            ['payload' => ['service_type' => 'point_to_point', 'distance_miles' => 20], 'method' => 'point_to_point_minimum_hours', 'fare' => 200, 'total' => 200],
-            ['payload' => ['service_type' => 'point_to_point', 'distance_miles' => 40], 'method' => 'distance', 'fare' => 160, 'total' => 160],
+            ['payload' => ['service_type' => 'point_to_point', 'distance_miles' => 20], 'method' => 'point_to_point_flat_plus_distance', 'fare' => 105.64, 'total' => 105.64],
+            ['payload' => ['service_type' => 'point_to_point', 'distance_miles' => 40], 'method' => 'point_to_point_flat_plus_distance', 'fare' => 185.64, 'total' => 185.64],
             ['payload' => ['service_type' => 'hourly', 'hours' => 2, 'pickup_time' => '2026-09-18 10:00:00'], 'method' => 'peak_hourly', 'fare' => 240, 'total' => 240],
             ['payload' => ['service_type' => 'airport', 'airport_id' => $airport->id], 'method' => 'airport_flat_rate', 'fare' => 150, 'total' => 150],
             [

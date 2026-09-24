@@ -1953,6 +1953,8 @@ class BookingController extends Controller
 
         $rate = 0;
         $units = 0;
+        $flatFare = 0;
+        $additionalMiles = 0;
         $pricingMethod = 'distance';
         $available = true;
         $unavailableReason = null;
@@ -2011,16 +2013,12 @@ class BookingController extends Controller
                         $rate = (float) $vehicleClass->point_to_point_rate;
                         $units = 1;
                         $pricingMethod = 'point_to_point_flat';
-                    } elseif ($distanceMiles <= $data['distance_rate_start_miles']) {
-                        $rate = (float) ($vehicleClass->hourly_rate ?? 0);
-                        $units = (float) $data['point_to_point_minimum_hours'];
-                        $pricingMethod = 'point_to_point_minimum_hours';
-                        $available = $vehicleClass->hourly_rate !== null;
-                        $unavailableReason = $available ? null : 'Hourly rate is not configured for this vehicle class';
                     } else {
                         $rate = (float) ($vehicleClass->per_mile_rate ?? 0);
-                        $units = $distanceMiles;
-                        $pricingMethod = 'distance';
+                        $flatFare = (float) $vehicleClass->point_to_point_rate;
+                        $additionalMiles = $distanceMiles - (float) $data['short_distance_limit_miles'];
+                        $units = $additionalMiles;
+                        $pricingMethod = 'point_to_point_flat_plus_distance';
                         $available = $vehicleClass->per_mile_rate !== null;
                         $unavailableReason = $available ? null : 'Distance rate is not configured for this vehicle class';
                     }
@@ -2029,7 +2027,7 @@ class BookingController extends Controller
         }
 
         $cancellationFee = $status === 'cancelled' ? $configuredCancellationFee : 0;
-        $tripFare = $units * $rate;
+        $tripFare = $flatFare + ($units * $rate);
         $extraStopAmount = $vehicleClass?->extra_stop_eligible ? $extraStops * $data['extra_stop_fee'] : 0;
         $waitingTimeAmount = $waitingMinutes > $data['waiting_grace_minutes']
             ? ($waitingMinutes / 60) * $data['wait_time_rate']
@@ -2047,6 +2045,9 @@ class BookingController extends Controller
             'service_type' => $serviceType,
             'rate' => $rate,
             'units' => $units,
+            'flat_fare' => $flatFare,
+            'additional_miles' => $additionalMiles,
+            'additional_miles_fare' => $units * $rate,
             'pricing_method' => $pricingMethod,
             'available' => $available,
             'unavailable_reason' => $unavailableReason,
@@ -2242,6 +2243,9 @@ class BookingController extends Controller
             'rate' => $priceCalculation['rate'],
             'pricing_method' => $priceCalculation['pricing_method'],
             'trip_fare' => $priceCalculation['trip_fare'],
+            'flat_fare' => $priceCalculation['flat_fare'] ?? 0,
+            'additional_miles' => $priceCalculation['additional_miles'] ?? 0,
+            'additional_miles_fare' => $priceCalculation['additional_miles_fare'] ?? 0,
             $billedField => $billedValue,
             'base_price' => $priceCalculation['base_price'],
             'extras_price' => $priceCalculation['extras_price'],
