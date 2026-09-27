@@ -2045,9 +2045,9 @@ class BookingController extends Controller
             : 0;
         $subtotal = $basePrice + $tripFare + $extrasPrice + $parking + $others + $airportFees
             + $congestionCharge + $tolls + $extraStopAmount + $waitingTimeAmount;
-        $surgeAmount = $isSprinterInclusive ? 0 : $subtotal * ($surgeRate / 100);
-        $taxesAmount = $isSprinterInclusive ? 0 : ($subtotal + $surgeAmount) * ($taxRate / 100);
-        $gratuityAmount = $isSprinterInclusive ? 0 : ($subtotal + $surgeAmount) * ($gratuityPercentage / 100);
+        $surgeAmount = $subtotal * ($surgeRate / 100);
+        $taxesAmount = ($subtotal + $surgeAmount) * ($taxRate / 100);
+        $gratuityAmount = ($subtotal + $surgeAmount) * ($gratuityPercentage / 100);
         $total = $subtotal + $surgeAmount + $taxesAmount + $gratuityAmount + $cancellationFee;
         $bufferAmount = $total * ($rateBuffer / 100);
         $authorizationAmount = $total + $bufferAmount;
@@ -2059,7 +2059,7 @@ class BookingController extends Controller
             'flat_fare' => $flatFare,
             'additional_miles' => $additionalMiles,
             'additional_miles_fare' => $units * $rate,
-            'tax_and_gratuity_included' => $isSprinterInclusive,
+            'tax_and_gratuity_included' => false,
             'pricing_method' => $pricingMethod,
             'available' => $available,
             'unavailable_reason' => $unavailableReason,
