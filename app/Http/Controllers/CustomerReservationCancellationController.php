@@ -15,6 +15,46 @@ class CustomerReservationCancellationController extends Controller
 {
     private const NOTIFICATION_EMAILS = 'reservations@squarelimo.com';
 
+    public function lookup(Request $request)
+    {
+        $validated = $request->validate([
+            'booking_id' => ['required', 'integer', 'min:1'],
+            'email' => ['required', 'email', 'max:255'],
+            'trip_date' => ['required', 'date_format:Y-m-d'],
+        ]);
+
+        $company = Company::first();
+        if (! $company) {
+            return response()->json(['message' => 'Company not found'], 404);
+        }
+
+        $booking = $this->findBooking($company, $validated);
+        if (! $booking) {
+            return response()->json(['message' => 'Booking not found'], 404);
+        }
+
+        $eligibilityError = $this->cancellationEligibilityError($booking);
+        if ((string) $booking->status === 'cancelled') {
+            $eligibilityError = 'This booking is already cancelled';
+        } elseif (in_array((string) $booking->status, ['completed', 'done'], true)) {
+            $eligibilityError = 'This booking can no longer be cancelled';
+        }
+
+        return response()->json([
+            'data' => [
+                'id' => $booking->id,
+                'status' => $booking->status,
+                'service_type' => $booking->service_type,
+                'pickup_time' => $booking->pickup_time,
+                'pickup_address' => $booking->pickup_address,
+                'dropoff_address' => $booking->dropoff_address,
+                'vehicle_class' => $booking->vehicleClass?->name,
+                'cancellation_allowed' => $eligibilityError === null,
+                'cancellation_message' => $eligibilityError,
+            ],
+        ]);
+    }
+
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -28,15 +68,7 @@ class CustomerReservationCancellationController extends Controller
             return response()->json(['message' => 'Company not found'], 404);
         }
 
-        $booking = Booking::with(['company', 'customer', 'vehicleClass', 'stops'])
-            ->where('company_id', $company->id)
-            ->whereKey($validated['booking_id'])
-            ->whereDate('pickup_time', $validated['trip_date'])
-            ->where(function ($query) use ($validated): void {
-                $query->where('email', $validated['email'])
-                    ->orWhereHas('customer', fn ($customerQuery) => $customerQuery->where('email', $validated['email']));
-            })
-            ->first();
+        $booking = $this->findBooking($company, $validated);
 
         if (! $booking) {
             return response()->json(['message' => 'Booking not found'], 404);
@@ -76,6 +108,19 @@ class CustomerReservationCancellationController extends Controller
             'message' => 'Your reservation has been cancelled successfully.',
             'data' => ['booking_id' => $booking->id, 'status' => $booking->status],
         ]);
+    }
+
+    private function findBooking(Company $company, array $validated): ?Booking
+    {
+        return Booking::with(['company', 'customer', 'vehicleClass', 'stops'])
+            ->where('company_id', $company->id)
+            ->whereKey($validated['booking_id'])
+            ->whereDate('pickup_time', $validated['trip_date'])
+            ->where(function ($query) use ($validated): void {
+                $query->where('email', $validated['email'])
+                    ->orWhereHas('customer', fn ($customerQuery) => $customerQuery->where('email', $validated['email']));
+            })
+            ->first();
     }
 
     private function cancellationEligibilityError(Booking $booking): ?string

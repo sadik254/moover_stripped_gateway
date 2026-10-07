@@ -117,6 +117,7 @@ Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->delete('custo
 
 // Booking routes
 Route::middleware('throttle:6,1')->post('sprinter-quote-requests', [SprinterQuoteRequestController::class, 'store']);
+Route::middleware('throttle:6,1')->post('customer-reservations/lookup', [CustomerReservationCancellationController::class, 'lookup']);
 Route::middleware('throttle:6,1')->post('customer-reservations/cancel', [CustomerReservationCancellationController::class, 'store']);
 Route::post('bookings', [BookingController::class, 'store']); // public booking request
 Route::middleware('throttle:6,1')->post('bookings/quick-receipt', [QuickReceiptController::class, 'download']);
