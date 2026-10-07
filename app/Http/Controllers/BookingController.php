@@ -2060,6 +2060,19 @@ class BookingController extends Controller
         }
 
         if ($isCustomQuote) {
+            // Quote-only vehicles never receive an automatic trip fare. Staff may
+            // still add the normal operational extras when finalizing the trip.
+            $extraStopAmount = $vehicleClass?->extra_stop_eligible ? $extraStops * $data['extra_stop_fee'] : 0;
+            $waitingTimeAmount = $waitingMinutes > $data['waiting_grace_minutes']
+                ? ($waitingMinutes / 60) * $data['wait_time_rate']
+                : 0;
+            $subtotal = $extrasPrice + $parking + $others + $airportFees + $congestionCharge + $tolls
+                + $extraStopAmount + $waitingTimeAmount;
+            $surgeAmount = $subtotal * ($surgeRate / 100);
+            $taxesAmount = ($subtotal + $surgeAmount) * ($taxRate / 100);
+            $gratuityAmount = ($subtotal + $surgeAmount) * ($gratuityPercentage / 100);
+            $total = $subtotal + $surgeAmount + $taxesAmount + $gratuityAmount;
+
             return [
                 'service_type' => $serviceType,
                 'rate' => 0,
@@ -2075,28 +2088,28 @@ class BookingController extends Controller
                 'base_price' => 0,
                 'distance_miles' => $distanceMiles,
                 'hours' => $hours,
-                'extras_price' => 0,
-                'tax_rate' => 0,
+                'extras_price' => $extrasPrice,
+                'tax_rate' => $taxRate,
                 'rate_buffer' => 0,
-                'gratuity_percentage' => 0,
-                'surge_rate' => 0,
+                'gratuity_percentage' => $gratuityPercentage,
+                'surge_rate' => $surgeRate,
                 'cancellation_fee' => 0,
-                'subtotal' => 0,
-                'surge_rate_amount' => 0,
-                'taxes_amount' => 0,
-                'gratuity_amount' => 0,
-                'parking' => 0,
-                'others' => 0,
-                'airport_fees' => 0,
-                'congestion_charge' => 0,
-                'tolls' => 0,
-                'extra_stops' => 0,
-                'extra_stop_amount' => 0,
-                'waiting_minutes' => 0,
-                'waiting_time_amount' => 0,
+                'subtotal' => $subtotal,
+                'surge_rate_amount' => $surgeAmount,
+                'taxes_amount' => $taxesAmount,
+                'gratuity_amount' => $gratuityAmount,
+                'parking' => $parking,
+                'others' => $others,
+                'airport_fees' => $airportFees,
+                'congestion_charge' => $congestionCharge,
+                'tolls' => $tolls,
+                'extra_stops' => $extraStops,
+                'extra_stop_amount' => $extraStopAmount,
+                'waiting_minutes' => $waitingMinutes,
+                'waiting_time_amount' => $waitingTimeAmount,
                 'buffer_amount' => 0,
-                'total_price' => 0,
-                'authorization_amount' => 0,
+                'total_price' => $total,
+                'authorization_amount' => $total,
             ];
         }
 

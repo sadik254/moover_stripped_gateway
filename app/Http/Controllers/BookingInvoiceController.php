@@ -30,8 +30,8 @@ class BookingInvoiceController extends Controller
         if ($booking->booking_origin !== 'admin' || $booking->status !== 'completed') {
             return response()->json(['message' => 'Invoices can only be sent for completed admin bookings'], 422);
         }
-        if ($booking->payment_status === 'invoice_sent' || $booking->payment_status === 'paid') {
-            return response()->json(['message' => 'An invoice has already been sent for this booking'], 422);
+        if ($booking->payment_status === 'paid') {
+            return response()->json(['message' => 'This booking has already been paid'], 422);
         }
         if (! $booking->email || (float) $booking->final_price <= 0) {
             return response()->json(['message' => 'A customer email and final amount are required'], 422);
@@ -39,6 +39,19 @@ class BookingInvoiceController extends Controller
 
         Stripe::setApiKey((string) config('services.stripe.secret_key'));
         try {
+            $existingPayment = BookingPayment::where('booking_id', $booking->id)
+                ->where('provider', 'stripe_invoice')
+                ->latest()
+                ->first();
+            if ($existingPayment?->stripe_invoice_id) {
+                $invoice = Invoice::retrieve($existingPayment->stripe_invoice_id);
+                if ($invoice->status === 'paid') {
+                    return response()->json(['message' => 'This invoice has already been paid'], 422);
+                }
+                $invoice->sendInvoice();
+                return response()->json(['message' => 'Stripe invoice resent successfully', 'data' => ['hosted_invoice_url' => $invoice->hosted_invoice_url]]);
+            }
+
             $customer = StripeCustomer::create(['email' => $booking->email, 'name' => $booking->name, 'metadata' => ['booking_id' => $booking->id]]);
             $invoice = Invoice::create(['customer' => $customer->id, 'collection_method' => 'send_invoice', 'days_until_due' => 1, 'auto_advance' => false, 'metadata' => ['booking_id' => $booking->id, 'company_id' => $booking->company_id]]);
             InvoiceItem::create(['customer' => $customer->id, 'invoice' => $invoice->id, 'currency' => strtolower((string) ($booking->company?->currency ?? 'usd')), 'amount' => (int) round($booking->final_price * 100), 'description' => "Booking #{$booking->id}"]);
