@@ -40,12 +40,12 @@ class BookingInvoiceController extends Controller
         Stripe::setApiKey((string) config('services.stripe.secret_key'));
         try {
             $customer = StripeCustomer::create(['email' => $booking->email, 'name' => $booking->name, 'metadata' => ['booking_id' => $booking->id]]);
-            InvoiceItem::create(['customer' => $customer->id, 'currency' => strtolower((string) ($booking->company?->currency ?? 'usd')), 'amount' => (int) round($booking->final_price * 100), 'description' => "Booking #{$booking->id}"]);
-            $invoice = Invoice::create(['customer' => $customer->id, 'collection_method' => 'send_invoice', 'days_until_due' => 1, 'metadata' => ['booking_id' => $booking->id, 'company_id' => $booking->company_id]]);
+            $invoice = Invoice::create(['customer' => $customer->id, 'collection_method' => 'send_invoice', 'days_until_due' => 1, 'auto_advance' => false, 'metadata' => ['booking_id' => $booking->id, 'company_id' => $booking->company_id]]);
+            InvoiceItem::create(['customer' => $customer->id, 'invoice' => $invoice->id, 'currency' => strtolower((string) ($booking->company?->currency ?? 'usd')), 'amount' => (int) round($booking->final_price * 100), 'description' => "Booking #{$booking->id}"]);
             $invoice = $invoice->finalizeInvoice();
             $invoice->sendInvoice();
 
-            BookingPayment::create(['booking_id' => $booking->id, 'customer_id' => $booking->customer_id, 'provider' => 'stripe_invoice', 'currency' => strtolower((string) ($booking->company?->currency ?? 'usd')), 'payment_intent_id' => $invoice->payment_intent, 'estimated_amount' => $booking->final_price, 'authorized_amount' => 0, 'amount_to_capture' => $booking->final_price, 'status' => 'open', 'raw_payload' => $invoice->toArray()]);
+            BookingPayment::create(['booking_id' => $booking->id, 'customer_id' => $booking->customer_id, 'provider' => 'stripe_invoice', 'currency' => strtolower((string) ($booking->company?->currency ?? 'usd')), 'payment_intent_id' => $invoice->payment_intent ?: null, 'stripe_invoice_id' => $invoice->id, 'estimated_amount' => $booking->final_price, 'authorized_amount' => 0, 'amount_to_capture' => $booking->final_price, 'status' => $invoice->status, 'raw_payload' => $invoice->toArray()]);
             $booking->payment_method = 'stripe_invoice';
             $booking->payment_status = 'invoice_sent';
             $booking->save();

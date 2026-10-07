@@ -15,6 +15,7 @@ class BookingPayment extends Model
         'provider',
         'currency',
         'payment_intent_id',
+        'stripe_invoice_id',
         'payment_method_id',
         'estimated_amount',
         'authorized_amount',

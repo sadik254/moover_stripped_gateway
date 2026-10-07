@@ -50,8 +50,30 @@ class BookingPaymentController extends Controller
             return response()->json(['received' => true]);
         }
 
-        $payment = BookingPayment::where('payment_intent_id', $intentId)->first();
+        $isInvoiceEvent = str_starts_with((string) $event->type, 'invoice.');
+        $payment = $isInvoiceEvent
+            ? BookingPayment::where('stripe_invoice_id', $intentId)->first()
+            : BookingPayment::where('payment_intent_id', $intentId)->first();
         if (! $payment) {
+            return response()->json(['received' => true]);
+        }
+
+        if ($isInvoiceEvent) {
+            $payment->status = (string) ($intentObject->status ?? $payment->status);
+            $payment->raw_payload = (array) $intentObject;
+            $payment->captured_amount = isset($intentObject->amount_paid)
+                ? round(((int) $intentObject->amount_paid) / 100, 2)
+                : $payment->captured_amount;
+            $payment->save();
+
+            if ($payment->booking) {
+                $payment->booking->payment_status = $event->type === 'invoice.paid' ? 'paid' : $payment->booking->payment_status;
+                $payment->booking->save();
+                if ($event->type === 'invoice.paid') {
+                    $this->sendPublicReceipt($payment->booking, $payment);
+                }
+            }
+
             return response()->json(['received' => true]);
         }
 
