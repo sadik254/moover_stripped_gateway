@@ -59,7 +59,7 @@ class BookingController extends Controller
             ], 422);
         }
 
-        $query = Booking::with(['stops:id,booking_id,address,position', 'driver:id,name', 'vehicleClass:id,name,capacity,luggage,image', 'airport:id,code,name', 'latestPayment'])
+        $query = Booking::with(['stops:id,booking_id,address,position', 'driver:id,name', 'vehicleClass:id,name,capacity,luggage,image,pricing_mode', 'airport:id,code,name', 'latestPayment'])
             ->where('company_id', $company->id);
 
         if ($request->filled('status')) {
@@ -1564,6 +1564,7 @@ class BookingController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
+            'quoted_fare' => 'sometimes|nullable|numeric|min:0',
             'extras_price' => 'sometimes|nullable|numeric|min:0',
             'parking' => 'sometimes|nullable|numeric|min:0',
             'others' => 'sometimes|nullable|numeric|min:0',
@@ -1581,8 +1582,17 @@ class BookingController extends Controller
             ], 422);
         }
 
+        $vehicleClass = VehicleClass::find($booking->vehicle_class_id);
+        $canSetQuotedFare = $isAdminBooking && $vehicleClass?->pricing_mode === 'custom_quote';
+        if ($request->has('quoted_fare') && ! $canSetQuotedFare) {
+            return response()->json([
+                'message' => 'Quoted fare is available only for admin-created custom quote bookings',
+            ], 422);
+        }
+
         $beforeSnapshot = $booking->only([
             'status',
+            'quoted_fare',
             'extras_price',
             'parking',
             'others',
@@ -1603,6 +1613,7 @@ class BookingController extends Controller
             ?? max(0, (float) ($payment?->authorized_amount ?? 0) - $originalRateBufferAmount));
 
         $booking->fill($request->only([
+            'quoted_fare',
             'extras_price',
             'parking',
             'others',
@@ -1613,7 +1624,6 @@ class BookingController extends Controller
             'tolls',
         ]));
 
-        $vehicleClass = VehicleClass::find($booking->vehicle_class_id);
         $systemConfig = $this->getSystemConfig($booking->company_id);
         $priceCalculation = $this->calculatePrice($vehicleClass, $this->buildPriceInput($booking, $systemConfig));
         $finalPrice = (float) $priceCalculation['total_price'];
@@ -2070,7 +2080,8 @@ class BookingController extends Controller
             $waitingTimeAmount = $waitingMinutes > $data['waiting_grace_minutes']
                 ? ($waitingMinutes / 60) * $data['wait_time_rate']
                 : 0;
-            $subtotal = $extrasPrice + $parking + $others + $airportFees + $congestionCharge + $tolls
+            $quotedFare = $data['booking_origin'] === 'admin' ? (float) $data['quoted_fare'] : 0;
+            $subtotal = $quotedFare + $extrasPrice + $parking + $others + $airportFees + $congestionCharge + $tolls
                 + $extraStopAmount + $waitingTimeAmount;
             $surgeAmount = $subtotal * ($surgeRate / 100);
             $taxesAmount = ($subtotal + $surgeAmount) * ($taxRate / 100);
@@ -2088,8 +2099,9 @@ class BookingController extends Controller
                 'pricing_method' => $pricingMethod,
                 'available' => true,
                 'unavailable_reason' => null,
-                'trip_fare' => 0,
-                'base_price' => 0,
+                'trip_fare' => $quotedFare,
+                'base_price' => $quotedFare,
+                'quoted_fare' => $quotedFare,
                 'distance_miles' => $distanceMiles,
                 'hours' => $hours,
                 'extras_price' => $extrasPrice,
@@ -2179,6 +2191,8 @@ class BookingController extends Controller
             'distance_miles' => (float) ($data->distance_miles ?? 0),
             'hours' => (float) ($data->hours ?? 0),
             'base_price' => (float) ($config->base_price_flat ?? 0),
+            'quoted_fare' => (float) ($data->quoted_fare ?? 0),
+            'booking_origin' => (string) ($data->booking_origin ?? 'online'),
             'extras_price' => (float) ($data->extras_price ?? 0),
             'tax_rate' => (float) ($config->tax_rate ?? 0),
             'rate_buffer' => (float) ($config->rate_buffer ?? 0),

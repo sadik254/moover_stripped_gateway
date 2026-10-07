@@ -44,6 +44,7 @@ class Booking extends Model
         'waiting_time_amount',
         'pricing_method',
         'base_price',
+        'quoted_fare',
         'extras_price',
         'total_price',
         'final_price',
