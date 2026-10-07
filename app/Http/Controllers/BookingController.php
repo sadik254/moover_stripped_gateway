@@ -639,6 +639,7 @@ class BookingController extends Controller
 
         $validator = Validator::make($request->all(), [
             'customer_id' => ['nullable', Rule::exists('customers', 'id')],
+            'booking_origin' => ['nullable', Rule::in(['online', 'admin'])],
             'name' => 'nullable|string|max:255',
             'email' => 'nullable|email|max:255',
             'phone' => 'nullable|string|max:50',
@@ -692,6 +693,10 @@ class BookingController extends Controller
         }
 
         $authUser = auth('sanctum')->user() ?? $request->user();
+        if ($request->input('booking_origin') === 'admin'
+            && (! $authUser instanceof User || ! in_array((string) $authUser->user_type, ['admin', 'dispatcher'], true))) {
+            return response()->json(['message' => 'Unauthorized booking origin'], 403);
+        }
         if ($request->filled('customer_id')) {
             if ($authUser instanceof User) {
                 if (! in_array((string) $authUser->user_type, ['admin', 'dispatcher'], true)) {
@@ -797,6 +802,7 @@ class BookingController extends Controller
 
                 $data = $request->only([
                     'customer_id',
+                    'booking_origin',
                     'name',
                     'email',
                     'phone',
@@ -830,6 +836,7 @@ class BookingController extends Controller
                 ]);
 
                 $data['company_id'] = $company->id;
+                $data['booking_origin'] = $data['booking_origin'] ?? 'online';
                 $data['extra_stops'] = count($request->input('stops', []));
                 $data['base_price'] = $priceCalculation['base_price'];
                 $data['extra_stop_amount'] = $priceCalculation['extra_stop_amount'];

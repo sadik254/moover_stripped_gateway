@@ -18,6 +18,7 @@ use App\Http\Controllers\QuickReceiptController;
 use App\Http\Controllers\SystemConfigController;
 use App\Http\Controllers\SprinterQuoteRequestController;
 use App\Http\Controllers\CustomerReservationCancellationController;
+use App\Http\Controllers\BookingInvoiceController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VehicleClassController;
 use App\Http\Controllers\VehicleController;
@@ -135,6 +136,7 @@ Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('booking
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('bookings/{id}/assign-affiliate', [BookingController::class, 'assignAffiliate']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('bookings/{id}/update-status', [BookingController::class, 'updateStatusOnly']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('bookings/{id}/finalize', [BookingController::class, 'finalize']);
+Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('bookings/{id}/invoice', [BookingInvoiceController::class, 'create']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('bookings/{id}/cancel', [BookingController::class, 'cancelBooking']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->delete('bookings/{id}', [BookingController::class, 'destroy']);
 
