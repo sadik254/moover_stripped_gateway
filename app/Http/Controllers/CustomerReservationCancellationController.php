@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Mail\CustomerBookingCancelledMail;
 use App\Models\Booking;
+use App\Models\BookingActivity;
 use App\Models\Company;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -58,6 +59,16 @@ class CustomerReservationCancellationController extends Controller
         $booking->status = 'cancelled';
         $booking->saveQuietly();
         $booking->refresh()->loadMissing(['company', 'customer', 'vehicleClass', 'stops']);
+
+        BookingActivity::create([
+            'company_id' => $booking->company_id,
+            'booking_id' => $booking->id,
+            'action' => 'booking_cancelled_by_customer',
+            'description' => 'Booking cancelled by customer through Manage Reservation',
+            'old_values' => ['status' => $previousStatus],
+            'new_values' => ['status' => 'cancelled'],
+            'meta' => ['ip' => $request->ip(), 'user_agent' => (string) $request->userAgent()],
+        ]);
 
         $this->sendCancellationEmails($booking, $previousStatus);
 
