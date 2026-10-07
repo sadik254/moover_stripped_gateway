@@ -1552,7 +1552,8 @@ class BookingController extends Controller
         }
 
         $payment = BookingPayment::where('booking_id', $booking->id)->latest()->first();
-        if (! $payment || (string) $payment->status !== 'requires_capture') {
+        $isAdminBooking = (string) $booking->booking_origin === 'admin';
+        if (! $isAdminBooking && (! $payment || (string) $payment->status !== 'requires_capture')) {
             return response()->json([
                 'message' => 'A capturable payment authorization is required before finalizing',
             ], 422);
@@ -1593,9 +1594,9 @@ class BookingController extends Controller
 
         $originalRateBufferPercent = (float) ($booking->rate_buffer ?? 0);
         $originalRateBufferAmount = (float) ($booking->rate_buffer_amount
-            ?? max(0, (float) $payment->authorized_amount - (float) $payment->estimated_amount));
-        $originalEstimatedAmount = (float) ($payment->estimated_amount
-            ?? max(0, (float) $payment->authorized_amount - $originalRateBufferAmount));
+            ?? max(0, (float) ($payment?->authorized_amount ?? 0) - (float) ($payment?->estimated_amount ?? 0)));
+        $originalEstimatedAmount = (float) ($payment?->estimated_amount
+            ?? max(0, (float) ($payment?->authorized_amount ?? 0) - $originalRateBufferAmount));
 
         $booking->fill($request->only([
             'extras_price',
@@ -1613,7 +1614,7 @@ class BookingController extends Controller
         $priceCalculation = $this->calculatePrice($vehicleClass, $this->buildPriceInput($booking, $systemConfig));
         $finalPrice = (float) $priceCalculation['total_price'];
 
-        if ($finalPrice > (float) $payment->authorized_amount) {
+        if (! $isAdminBooking && $finalPrice > (float) $payment->authorized_amount) {
             return response()->json([
                 'message' => 'Final price exceeds authorized amount. Additional charge flow is required.',
                 'data' => [
@@ -1643,8 +1644,10 @@ class BookingController extends Controller
             $booking->status = 'completed';
             $booking->save();
 
-            $payment->amount_to_capture = $finalPrice;
-            $payment->save();
+            if ($payment) {
+                $payment->amount_to_capture = $finalPrice;
+                $payment->save();
+            }
         });
 
         $freshBooking = $booking->fresh();
@@ -1666,7 +1669,9 @@ class BookingController extends Controller
         $finalBreakdown['authorization_amount'] = $finalPrice;
 
         return response()->json([
-            'message' => 'Booking finalized successfully and is ready for payment capture',
+            'message' => $isAdminBooking
+                ? 'Booking finalized successfully and is ready for invoicing'
+                : 'Booking finalized successfully and is ready for payment capture',
             'data' => $freshBooking,
             'calculation' => $finalBreakdown,
             'pricing' => $finalBreakdown,
@@ -1674,10 +1679,10 @@ class BookingController extends Controller
                 'original_estimated_amount' => $originalEstimatedAmount,
                 'original_rate_buffer_percent' => $originalRateBufferPercent,
                 'original_rate_buffer_amount' => $originalRateBufferAmount,
-                'authorized_amount' => (float) $payment->authorized_amount,
+                'authorized_amount' => (float) ($payment?->authorized_amount ?? 0),
                 'amount_to_capture' => $finalPrice,
-                'remaining_authorization' => round((float) $payment->authorized_amount - $finalPrice, 2),
-                'unused_authorization' => round((float) $payment->authorized_amount - $finalPrice, 2),
+                'remaining_authorization' => $payment ? round((float) $payment->authorized_amount - $finalPrice, 2) : 0,
+                'unused_authorization' => $payment ? round((float) $payment->authorized_amount - $finalPrice, 2) : 0,
             ],
         ]);
     }
