@@ -16,6 +16,8 @@ use App\Http\Controllers\FormtemplateController;
 use App\Http\Controllers\PublicTripController;
 use App\Http\Controllers\QuickReceiptController;
 use App\Http\Controllers\SystemConfigController;
+use App\Http\Controllers\SprinterQuoteRequestController;
+use App\Http\Controllers\CustomerReservationCancellationController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VehicleClassController;
 use App\Http\Controllers\VehicleController;
@@ -113,6 +115,8 @@ Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('custome
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->delete('customers/{id}', [CustomerController::class, 'destroy']);
 
 // Booking routes
+Route::middleware('throttle:6,1')->post('sprinter-quote-requests', [SprinterQuoteRequestController::class, 'store']);
+Route::middleware('throttle:6,1')->post('customer-reservations/cancel', [CustomerReservationCancellationController::class, 'store']);
 Route::post('bookings', [BookingController::class, 'store']); // public booking request
 Route::middleware('throttle:6,1')->post('bookings/quick-receipt', [QuickReceiptController::class, 'download']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('bookings', [BookingController::class, 'index']);

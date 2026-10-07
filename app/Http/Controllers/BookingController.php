@@ -737,6 +737,7 @@ class BookingController extends Controller
                     'image' => $vehicleClass->image,
                     'capacity' => $vehicleClass->capacity,
                     'luggage' => $vehicleClass->luggage,
+                    'pricing_mode' => $vehicleClass->pricing_mode ?? 'standard',
                     'rate' => $priceCalculation['rate'],
                     'base_price' => $priceCalculation['base_price'],
                     'distance_miles' => $priceCalculation['distance_miles'],
@@ -776,6 +777,12 @@ class BookingController extends Controller
             return response()->json([
                 'message' => 'Vehicle class not found',
             ], 404);
+        }
+
+        if ($vehicleClass->pricing_mode === 'custom_quote') {
+            return response()->json([
+                'message' => 'This vehicle class requires a custom quote request',
+            ], 422);
         }
 
         $selectedCalculation = $this->calculatePrice($vehicleClass, $this->buildPriceInput($request, $systemConfig));
@@ -1952,6 +1959,7 @@ class BookingController extends Controller
             && $pickupAddress === $dropoffAddress;
         $isSprinterInclusive = $vehicleClass?->pricing_mode === 'sprinter_inclusive'
             && in_array($serviceType, ['point_to_point', 'hourly', 'airport'], true);
+        $isCustomQuote = $vehicleClass?->pricing_mode === 'custom_quote';
 
         $rate = 0;
         $units = 0;
@@ -1961,7 +1969,9 @@ class BookingController extends Controller
         $available = true;
         $unavailableReason = null;
 
-        if ($isSprinterInclusive) {
+        if ($isCustomQuote) {
+            $pricingMethod = 'custom_quote';
+        } elseif ($isSprinterInclusive) {
             $rate = (float) ($vehicleClass?->hourly_rate ?? 0);
             $units = $serviceType === 'hourly' ? max($hours, 4) : 4;
             $hours = $units;
@@ -2035,6 +2045,47 @@ class BookingController extends Controller
                     }
                     break;
             }
+        }
+
+        if ($isCustomQuote) {
+            return [
+                'service_type' => $serviceType,
+                'rate' => 0,
+                'units' => 0,
+                'flat_fare' => 0,
+                'additional_miles' => 0,
+                'additional_miles_fare' => 0,
+                'tax_and_gratuity_included' => false,
+                'pricing_method' => $pricingMethod,
+                'available' => true,
+                'unavailable_reason' => null,
+                'trip_fare' => 0,
+                'base_price' => 0,
+                'distance_miles' => $distanceMiles,
+                'hours' => $hours,
+                'extras_price' => 0,
+                'tax_rate' => 0,
+                'rate_buffer' => 0,
+                'gratuity_percentage' => 0,
+                'surge_rate' => 0,
+                'cancellation_fee' => 0,
+                'subtotal' => 0,
+                'surge_rate_amount' => 0,
+                'taxes_amount' => 0,
+                'gratuity_amount' => 0,
+                'parking' => 0,
+                'others' => 0,
+                'airport_fees' => 0,
+                'congestion_charge' => 0,
+                'tolls' => 0,
+                'extra_stops' => 0,
+                'extra_stop_amount' => 0,
+                'waiting_minutes' => 0,
+                'waiting_time_amount' => 0,
+                'buffer_amount' => 0,
+                'total_price' => 0,
+                'authorization_amount' => 0,
+            ];
         }
 
         $cancellationFee = $status === 'cancelled' ? $configuredCancellationFee : 0;
