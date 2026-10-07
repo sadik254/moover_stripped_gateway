@@ -784,7 +784,11 @@ class BookingController extends Controller
             ], 404);
         }
 
-        if ($vehicleClass->pricing_mode === 'custom_quote') {
+        // Public bookings must be routed to the quote-request flow. Admin and
+        // dispatcher bookings are allowed to create the reservation without a
+        // calculated trip fare, then record permitted extras/invoice it later.
+        if ($vehicleClass->pricing_mode === 'custom_quote'
+            && $request->input('booking_origin', 'online') !== 'admin') {
             return response()->json([
                 'message' => 'This vehicle class requires a custom quote request',
             ], 422);
