@@ -82,7 +82,12 @@ class BookingObserver
             return;
         }
 
-        $this->send($customerEmail, new BookingStatusChangedMail($freshBooking, $previousStatus), $booking->id);
+        // Statuses are operational updates. Customers only need a completion
+        // notice after the trip has been finalized; the arrival notification
+        // above already covers the pickup milestone.
+        if ($freshBooking->status === 'completed') {
+            $this->send($customerEmail, new BookingStatusChangedMail($freshBooking, $previousStatus), $booking->id);
+        }
     }
 
     private function send(string $email, object $mailable, int $bookingId): void

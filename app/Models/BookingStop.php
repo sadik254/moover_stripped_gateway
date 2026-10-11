@@ -9,7 +9,7 @@ class BookingStop extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['booking_id', 'address', 'position', 'minutes'];
+    protected $fillable = ['booking_id', 'address', 'position'];
 
     public function booking()
     {

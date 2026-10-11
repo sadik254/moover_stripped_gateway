@@ -41,6 +41,9 @@ class PublicTripAccessTest extends TestCase
         $this->get($driverUrl)
             ->assertOk()
             ->assertSee('Notification Company')
+            ->assertSee('Passenger')
+            ->assertSee('Customer')
+            ->assertSee('Trip schedule')
             ->assertSee('#'.$booking->id)
             ->assertSee('navigator.wakeLock', false)
             ->assertSee("request('screen')", false);
@@ -48,10 +51,14 @@ class PublicTripAccessTest extends TestCase
             ->assertOk()->assertJsonPath('data.next_status', 'on_route');
         $this->postJson("/api/public/driver-trips/{$driverToken}/status", ['status' => 'on_route'])
             ->assertOk()->assertJsonPath('data.next_status', 'on_location');
-        $this->postJson("/api/public/driver-trips/{$driverToken}/stops", [
-            'address' => 'Driver-added stop',
-            'minutes' => 15,
-        ])->assertCreated()->assertJsonPath('stop.minutes', 15);
+        $this->postJson("/api/public/driver-trips/{$driverToken}/pause")
+            ->assertOk()->assertJsonPath('data.pause_active', true);
+        $this->travel(3)->minutes();
+        $pauseResponse = $this->postJson("/api/public/driver-trips/{$driverToken}/pause")
+            ->assertOk()
+            ->assertJsonPath('data.pause_active', false);
+        $recordedPauseMinutes = (int) $pauseResponse->json('data.pause_minutes');
+        $this->assertGreaterThanOrEqual(3, $recordedPauseMinutes);
         $this->postJson("/api/public/driver-trips/{$driverToken}/location", [
             'latitude' => 40.7128,
             'longitude' => -74.0060,
@@ -78,6 +85,8 @@ class PublicTripAccessTest extends TestCase
         $this->postJson("/api/public/driver-trips/{$driverToken}/status", ['status' => 'pob'])
             ->assertOk()->assertJsonPath('data.next_status', 'done');
         $this->postJson("/api/public/driver-trips/{$driverToken}/status", ['status' => 'done'])->assertOk();
+        $this->assertSame((float) $recordedPauseMinutes, (float) $booking->fresh()->waiting_minutes);
+        $this->assertSame(0, (int) $booking->fresh()->driver_pause_minutes);
         $this->getJson("/api/public/driver-trips/{$driverToken}")->assertNotFound();
 
         BookingPayment::create([
@@ -127,7 +136,7 @@ class PublicTripAccessTest extends TestCase
         ]);
         $booking = Booking::create([
             'company_id' => $company->id, 'vehicle_class_id' => $class->id, 'name' => 'Customer',
-            'email' => 'customer@example.com', 'service_type' => 'point_to_point', 'pickup_address' => 'Pickup',
+            'email' => 'customer@example.com', 'phone' => '+12125550101', 'service_type' => 'point_to_point', 'pickup_address' => 'Pickup',
             'dropoff_address' => 'Drop-off', 'pickup_time' => now()->addDay(), 'passengers' => 2,
             'status' => 'confirmed', 'final_price' => 100,
         ]);

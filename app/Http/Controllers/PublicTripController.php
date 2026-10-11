@@ -58,6 +58,9 @@ class PublicTripController extends Controller
             ], 422);
         }
 
+        if ($request->status === 'done') {
+            $this->applyDriverPauseMinutes($booking);
+        }
         $booking->status = $request->status;
         $booking->save();
 
@@ -116,45 +119,57 @@ class PublicTripController extends Controller
         return response()->json(['message' => 'Location updated', 'data' => $payload]);
     }
 
-    public function addStop(Request $request, string $token)
+    public function togglePause(Request $request, string $token)
     {
         [$link, $booking] = $this->resolveDriver($token);
         if (! $link || ! $booking) {
             return response()->json(['message' => 'This driver link is invalid or expired'], 404);
         }
         if (! in_array((string) $booking->status, ['on_route', 'on_location', 'pob'], true)) {
-            return response()->json(['message' => 'Stops can only be added after the driver is on route and before the trip is done'], 422);
+            return response()->json(['message' => 'The stop timer is available after the trip starts and before it is done'], 422);
         }
 
-        $validated = $request->validate([
-            'address' => ['required', 'string', 'max:1000'],
-            'minutes' => ['required', 'integer', 'min:1', 'max:240'],
-        ]);
-
-        $stop = null;
-        \DB::transaction(function () use ($booking, $validated, &$stop): void {
-            $position = (int) $booking->stops()->max('position') + 1;
-            $stop = $booking->stops()->create([
-                'address' => $validated['address'],
-                'position' => $position,
-                'minutes' => $validated['minutes'],
+        if ($booking->driver_pause_started_at) {
+            $minutes = $this->storeDriverPauseMinutes($booking);
+            return response()->json([
+                'message' => 'Trip resumed. Pause time will be added when the trip is completed.',
+                'data' => $this->driverPayload($booking->fresh()),
+                'minutes_recorded' => $minutes,
             ]);
+        }
 
-            // Stop minutes are treated as operational/waiting time, so they are
-            // included by the existing final-price calculation after the trip.
-            $booking->waiting_minutes = (float) ($booking->waiting_minutes ?? 0) + (int) $validated['minutes'];
-            if ($booking->dropoff_time) {
-                $booking->dropoff_time = Carbon::parse($booking->dropoff_time)->addMinutes((int) $validated['minutes']);
-            }
-            $booking->save();
-        });
-
-        $booking->refresh()->load('stops');
+        $booking->driver_pause_started_at = now();
+        $booking->save();
         return response()->json([
-            'message' => 'Stop added and booking time updated',
-            'data' => $this->driverPayload($booking),
-            'stop' => $stop,
-        ], 201);
+            'message' => 'Stop timer started',
+            'data' => $this->driverPayload($booking->fresh()),
+        ]);
+    }
+
+    private function storeDriverPauseMinutes(Booking $booking): int
+    {
+        if (! $booking->driver_pause_started_at) {
+            return 0;
+        }
+
+        $seconds = max(0, Carbon::parse($booking->driver_pause_started_at)->diffInSeconds(now()));
+        $minutes = (int) ceil($seconds / 60);
+        $booking->driver_pause_minutes = (int) ($booking->driver_pause_minutes ?? 0) + $minutes;
+        $booking->driver_pause_started_at = null;
+        $booking->save();
+        return $minutes;
+    }
+
+    private function applyDriverPauseMinutes(Booking $booking): void
+    {
+        $this->storeDriverPauseMinutes($booking);
+        $minutes = (int) ($booking->driver_pause_minutes ?? 0);
+        if ($minutes > 0) {
+            $booking->waiting_minutes = (float) ($booking->waiting_minutes ?? 0) + $minutes;
+            $booking->save();
+        }
+        $booking->driver_pause_minutes = 0;
+        $booking->save();
     }
 
     public function trackingPage(string $token)
@@ -257,6 +272,11 @@ class PublicTripController extends Controller
             'pickup_time' => $booking->pickup_time,
             'dropoff_time' => $booking->dropoff_time,
             'waiting_minutes' => (float) ($booking->waiting_minutes ?? 0),
+            'pause_active' => $booking->driver_pause_started_at !== null,
+            'pause_started_at' => $booking->driver_pause_started_at
+                ? Carbon::parse($booking->driver_pause_started_at)->toISOString()
+                : null,
+            'pause_minutes' => (int) ($booking->driver_pause_minutes ?? 0),
             'passenger' => ['name' => $booking->name, 'phone' => $booking->phone],
             'stops' => $booking->stops,
             'vehicle' => $booking->vehicle,

@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Mail\BookingDriverAssignedMail;
 use App\Mail\BookingStatusChangedMail;
+use App\Mail\BookingTrackingStartedMail;
+use App\Mail\DriverTripAccessMail;
 use App\Models\Booking;
 use App\Models\Company;
 use App\Models\Driver;
@@ -19,7 +21,7 @@ class BookingStatusNotificationsTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_assignment_and_status_changes_email_the_customer(): void
+    public function test_customer_receives_only_assignment_arrival_and_completion_trip_updates(): void
     {
         Mail::fake();
 
@@ -81,7 +83,16 @@ class BookingStatusNotificationsTest extends TestCase
         Mail::assertSent(BookingDriverAssignedMail::class, function (BookingDriverAssignedMail $mail): bool {
             return $mail->hasTo('customer@example.com')
                 && str_contains($mail->render(), 'Assigned Driver')
-                && str_contains($mail->render(), 'ABC-123');
+                && str_contains($mail->render(), 'ABC-123')
+                && str_contains($mail->render(), 'Pickup')
+                && str_contains($mail->render(), 'Drop-off');
+        });
+        Mail::assertSent(DriverTripAccessMail::class, function (DriverTripAccessMail $mail): bool {
+            return $mail->hasTo('driver@example.com')
+                && str_contains($mail->render(), 'Customer Name')
+                && str_contains($mail->render(), 'customer@example.com')
+                && str_contains($mail->render(), 'Pickup')
+                && str_contains($mail->render(), 'Drop-off');
         });
 
         Sanctum::actingAs($driver, ['driver']);
@@ -93,14 +104,27 @@ class BookingStatusNotificationsTest extends TestCase
         $this->postJson("/api/driver/bookings/{$booking->id}/status", ['status' => 'on_route'])
             ->assertOk()
             ->assertJsonPath('data.status', 'on_route');
+        Mail::assertNotSent(BookingStatusChangedMail::class);
 
-        Mail::assertSent(BookingStatusChangedMail::class, fn (BookingStatusChangedMail $mail): bool => $mail->hasTo('customer@example.com')
-            && $mail->previousStatus === 'assigned'
-            && $mail->booking->status === 'on_route');
+        $this->postJson("/api/driver/bookings/{$booking->id}/status", ['status' => 'on_location'])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'on_location');
+        Mail::assertSent(BookingTrackingStartedMail::class, fn (BookingTrackingStartedMail $mail): bool => $mail->hasTo('customer@example.com'));
 
-        $this->actingAs($admin, 'sanctum')
-            ->postJson("/api/bookings/{$booking->id}/update-status", ['status' => 'done'])
+        $this->postJson("/api/driver/bookings/{$booking->id}/status", ['status' => 'pob'])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'pob');
+        $this->postJson("/api/driver/bookings/{$booking->id}/status", ['status' => 'done'])
             ->assertOk()
             ->assertJsonPath('data.status', 'done');
+        Mail::assertNotSent(BookingStatusChangedMail::class);
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/bookings/{$booking->id}/update-status", ['status' => 'completed'])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'completed');
+        Mail::assertSent(BookingStatusChangedMail::class, fn (BookingStatusChangedMail $mail): bool => $mail->hasTo('customer@example.com')
+            && $mail->previousStatus === 'done'
+            && $mail->booking->status === 'completed');
     }
 }

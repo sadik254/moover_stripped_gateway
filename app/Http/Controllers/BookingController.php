@@ -2593,7 +2593,6 @@ class BookingController extends Controller
             $booking->stops()->create([
                 'address' => $stop['address'],
                 'position' => $position + 1,
-                'minutes' => (int) ($stop['minutes'] ?? 0),
             ]);
         }
 

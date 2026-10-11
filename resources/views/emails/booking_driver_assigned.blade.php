@@ -25,7 +25,14 @@
                             <div style="margin-top:5px;color:#475569;">{{ collect([$booking->vehicle->color, $booking->vehicle->model, $booking->vehicle->plate_number])->filter()->join(' · ') }}</div>
                         </div>
                     @endif
-                    <div style="color:#475569;line-height:1.6;"><strong>Pickup:</strong> {{ $booking->pickup_address }}<br><strong>Pickup time:</strong> {{ \Carbon\Carbon::parse($booking->pickup_time)->format('D, d M Y \a\t h:i A') }}</div>
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:4px;">
+                        <tr><td style="padding:9px 0;border-bottom:1px solid #e5e7eb;color:#64748b;width:34%;">Pickup</td><td style="padding:9px 0;border-bottom:1px solid #e5e7eb;font-weight:600;">{{ $booking->pickup_address }}</td></tr>
+                        @foreach ($booking->stops as $stop)
+                            <tr><td style="padding:9px 0;border-bottom:1px solid #e5e7eb;color:#64748b;">Stop {{ $stop->position }}</td><td style="padding:9px 0;border-bottom:1px solid #e5e7eb;font-weight:600;">{{ $stop->address }}</td></tr>
+                        @endforeach
+                        @if ($booking->dropoff_address)<tr><td style="padding:9px 0;border-bottom:1px solid #e5e7eb;color:#64748b;">Drop-off</td><td style="padding:9px 0;border-bottom:1px solid #e5e7eb;font-weight:600;">{{ $booking->dropoff_address }}</td></tr>@endif
+                        @if ($booking->pickup_time)<tr><td style="padding:9px 0;color:#64748b;">Pickup time</td><td style="padding:9px 0;font-weight:600;">{{ \Carbon\Carbon::parse($booking->pickup_time)->format('D, d M Y \a\t h:i A') }}</td></tr>@endif
+                    </table>
                     <p style="margin:20px 0 0;color:#64748b;">Thank you for riding with {{ $booking->company?->name ?? config('app.name', 'Moover') }}.</p>
                 </td></tr>
                 @if ($booking->company?->email || $booking->company?->phone || $booking->company?->address)
