@@ -43,13 +43,13 @@ class PublicTripController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'status' => 'required|in:picking_up,on_route,done',
+            'status' => 'required|in:on_route,on_location,pob,done',
         ]);
         if ($validator->fails()) {
             return response()->json(['message' => 'Validation failed', 'errors' => $validator->errors()], 422);
         }
 
-        $transitions = ['assigned' => 'picking_up', 'picking_up' => 'on_route', 'on_route' => 'done'];
+        $transitions = ['assigned' => 'on_route', 'on_route' => 'on_location', 'on_location' => 'pob', 'pob' => 'done'];
         $expected = $transitions[(string) $booking->status] ?? null;
         if ($expected === null || $expected !== $request->status) {
             return response()->json([
@@ -74,8 +74,8 @@ class PublicTripController extends Controller
         if (! $link || ! $booking) {
             return response()->json(['message' => 'This driver link is invalid or expired'], 404);
         }
-        if (! in_array((string) $booking->status, ['picking_up', 'on_route'], true)) {
-            return response()->json(['message' => 'Location sharing is available during picking_up and on_route'], 422);
+        if (! in_array((string) $booking->status, ['on_route', 'on_location', 'pob'], true)) {
+            return response()->json(['message' => 'Location sharing is available from on_route until the trip is done'], 422);
         }
 
         $validator = Validator::make($request->all(), [
@@ -109,7 +109,7 @@ class PublicTripController extends Controller
             ->where('booking_id', $booking->id)
             ->where('type', BookingAccessLink::CUSTOMER)
             ->first();
-        if ($trackingLink?->channel_key) {
+        if ($trackingLink?->channel_key && in_array((string) $booking->status, ['on_location', 'pob'], true)) {
             broadcast(new PublicBookingLocationUpdated($trackingLink->channel_key, $payload))->toOthers();
         }
 
@@ -205,7 +205,7 @@ class PublicTripController extends Controller
 
     private function driverPayload(Booking $booking): array
     {
-        $next = ['assigned' => 'picking_up', 'picking_up' => 'on_route', 'on_route' => 'done'][$booking->status] ?? null;
+        $next = ['assigned' => 'on_route', 'on_route' => 'on_location', 'on_location' => 'pob', 'pob' => 'done'][$booking->status] ?? null;
 
         return [
             'id' => $booking->id,
@@ -227,7 +227,9 @@ class PublicTripController extends Controller
             'status' => $booking->status,
             'driver' => $booking->driver ? $booking->driver->only(['name', 'phone', 'photo']) : null,
             'vehicle' => $booking->vehicle?->only(['name', 'model', 'color', 'plate_number', 'image']),
-            'location' => BookingLiveLocation::where('booking_id', $booking->id)->first(),
+            'location' => in_array((string) $booking->status, ['on_location', 'pob'], true)
+                ? BookingLiveLocation::where('booking_id', $booking->id)->first()
+                : null,
         ];
     }
 

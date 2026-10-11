@@ -44,7 +44,7 @@ class DriverController extends Controller
             ->count();
 
         $onTripDrivers = Booking::where('company_id', $company->id)
-            ->whereIn('status', ['assigned', 'picking_up', 'on_route', 'in_progress'])
+            ->whereIn('status', ['assigned', 'on_route', 'on_location', 'pob'])
             ->whereNotNull('driver_id')
             ->distinct('driver_id')
             ->count('driver_id');
@@ -384,7 +384,7 @@ class DriverController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'status' => ['required', Rule::in(['picking_up', 'on_route', 'done'])],
+            'status' => ['required', Rule::in(['on_route', 'on_location', 'pob', 'done'])],
         ]);
 
         if ($validator->fails()) {
@@ -403,9 +403,10 @@ class DriverController extends Controller
         }
 
         $allowedTransitions = [
-            'assigned' => 'picking_up',
-            'picking_up' => 'on_route',
-            'on_route' => 'done',
+            'assigned' => 'on_route',
+            'on_route' => 'on_location',
+            'on_location' => 'pob',
+            'pob' => 'done',
         ];
         $expectedStatus = $allowedTransitions[(string) $booking->status] ?? null;
 
@@ -439,7 +440,7 @@ class DriverController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'status' => ['sometimes', 'nullable', Rule::in(['pending', 'confirmed', 'assigned', 'picking_up', 'on_route', 'completed', 'cancelled', 'done'])],
+            'status' => ['sometimes', 'nullable', Rule::in(['pending', 'confirmed', 'assigned', 'on_route', 'on_location', 'pob', 'completed', 'cancelled', 'done'])],
             'per_page' => 'sometimes|integer|min:1|max:100',
         ]);
 

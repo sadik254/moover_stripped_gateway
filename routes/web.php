@@ -99,6 +99,7 @@ Route::get('/debug/reverb', function () {
   <div class="hint">
     1) Start Reverb: <code>php artisan reverb:start --host=127.0.0.1 --port={$wsPort}</code><br/>
     2) Set booking status to <code>on_route</code> and send driver location updates.<br/>
+    Customer tracking becomes visible once the booking reaches <code>on_location</code>.<br/>
     3) You should see <code>booking.location.updated</code> events here.
   </div>
 

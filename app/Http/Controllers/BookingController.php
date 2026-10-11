@@ -48,7 +48,7 @@ class BookingController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'status' => ['sometimes', 'nullable', Rule::in(['pending', 'confirmed', 'assigned', 'picking_up', 'on_route', 'completed', 'cancelled', 'done'])],
+            'status' => ['sometimes', 'nullable', Rule::in(['pending', 'confirmed', 'assigned', 'on_route', 'on_location', 'pob', 'completed', 'cancelled', 'done'])],
             'per_page' => 'sometimes|integer|min:1|max:100',
         ]);
 
@@ -90,7 +90,7 @@ class BookingController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'status' => ['sometimes', 'nullable', Rule::in(['pending', 'confirmed', 'assigned', 'picking_up', 'on_route', 'completed', 'cancelled', 'done'])],
+            'status' => ['sometimes', 'nullable', Rule::in(['pending', 'confirmed', 'assigned', 'on_route', 'on_location', 'pob', 'completed', 'cancelled', 'done'])],
             'per_page' => 'sometimes|integer|min:1|max:100',
         ]);
 
@@ -134,7 +134,7 @@ class BookingController extends Controller
         $validator = Validator::make($request->all(), [
             'date_from' => 'required|date',
             'date_to' => 'required|date|after_or_equal:date_from',
-            'status' => ['sometimes', 'nullable', Rule::in(['pending', 'confirmed', 'assigned', 'picking_up', 'on_route', 'completed', 'cancelled', 'done'])],
+            'status' => ['sometimes', 'nullable', Rule::in(['pending', 'confirmed', 'assigned', 'on_route', 'on_location', 'pob', 'completed', 'cancelled', 'done'])],
         ]);
 
         if ($validator->fails()) {
@@ -259,7 +259,7 @@ class BookingController extends Controller
             ->count();
 
         $todayInProgress = (clone $baseQuery)
-            ->whereIn('status', ['assigned', 'picking_up', 'on_route', 'in_progress'])
+            ->whereIn('status', ['assigned', 'on_route', 'on_location', 'pob'])
             ->whereBetween('pickup_time', [$todayStart, $todayEnd])
             ->count();
         $todayTotalTracked = $todayPending + $todayConfirmed + $todayInProgress;
@@ -275,7 +275,7 @@ class BookingController extends Controller
             ->count();
 
         $yesterdayInProgress = (clone $baseQuery)
-            ->whereIn('status', ['assigned', 'picking_up', 'on_route', 'in_progress'])
+            ->whereIn('status', ['assigned', 'on_route', 'on_location', 'pob'])
             ->whereBetween('pickup_time', [$yesterdayStart, $yesterdayEnd])
             ->count();
         $yesterdayTotalTracked = $yesterdayPending + $yesterdayConfirmed + $yesterdayInProgress;
@@ -410,7 +410,7 @@ class BookingController extends Controller
         $start = now()->startOfMonth();
         $end = now()->endOfMonth();
 
-        $pendingStatuses = ['pending', 'confirmed', 'assigned', 'picking_up', 'on_route', 'in_progress'];
+        $pendingStatuses = ['pending', 'confirmed', 'assigned', 'on_route', 'on_location', 'pob'];
 
         $pendingBookings = Booking::where('company_id', $company->id)
             ->whereBetween('pickup_time', [$start, $end])
@@ -530,7 +530,7 @@ class BookingController extends Controller
             'latestPayment',
         ])
             ->where('company_id', $company->id)
-            ->whereIn('status', ['picking_up', 'on_route'])
+            ->whereIn('status', ['on_route', 'on_location', 'pob'])
             ->orderByDesc('pickup_time')
             ->paginate($perPage)
             ->withQueryString();
@@ -617,7 +617,7 @@ class BookingController extends Controller
             'latestPayment',
         ])
             ->where('company_id', $company->id)
-            ->whereIn('status', ['pending', 'assigned', 'picking_up', 'on_route', 'in_progress'])
+            ->whereIn('status', ['pending', 'assigned', 'on_route', 'on_location', 'pob'])
             ->whereBetween('pickup_time', [$todayStart, $todayEnd])
             ->orderByDesc('updated_at')
             ->limit(5)
@@ -675,7 +675,7 @@ class BookingController extends Controller
             'congestion_charge' => 'nullable|numeric|min:0',
             'payment_method' => 'nullable|string|max:100',
             'payment_status' => 'nullable|string|max:100',
-            'status' => ['nullable', Rule::in(['pending', 'confirmed', 'assigned', 'picking_up', 'on_route', 'completed', 'cancelled', 'done'])],
+            'status' => ['nullable', Rule::in(['pending', 'confirmed', 'assigned', 'on_route', 'on_location', 'pob', 'completed', 'cancelled', 'done'])],
             'notes' => 'nullable|string',
         ]);
 
@@ -1082,7 +1082,7 @@ class BookingController extends Controller
             'congestion_charge' => 'sometimes|nullable|numeric|min:0',
             'payment_method' => 'sometimes|nullable|string|max:100',
             'payment_status' => 'sometimes|nullable|string|max:100',
-            'status' => ['sometimes', Rule::in(['pending', 'confirmed', 'assigned', 'picking_up', 'on_route', 'completed', 'cancelled', 'done'])],
+            'status' => ['sometimes', Rule::in(['pending', 'confirmed', 'assigned', 'on_route', 'on_location', 'pob', 'completed', 'cancelled', 'done'])],
             'notes' => 'sometimes|nullable|string',
         ]);
 
@@ -1722,7 +1722,7 @@ class BookingController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'status' => ['required', Rule::in(['pending', 'confirmed', 'assigned', 'picking_up', 'on_route', 'completed', 'cancelled', 'done'])],
+            'status' => ['required', Rule::in(['pending', 'confirmed', 'assigned', 'on_route', 'on_location', 'pob', 'completed', 'cancelled', 'done'])],
         ]);
 
         if ($validator->fails()) {

@@ -66,7 +66,7 @@ class BookingObserver
             return;
         }
 
-        if ($previousStatus === 'picking_up' && $freshBooking->status === 'on_route') {
+        if ($previousStatus === 'on_route' && $freshBooking->status === 'on_location') {
             [, $token] = BookingAccessLink::issue(
                 $freshBooking,
                 BookingAccessLink::CUSTOMER,

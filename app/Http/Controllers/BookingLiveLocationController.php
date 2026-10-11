@@ -32,9 +32,9 @@ class BookingLiveLocationController extends Controller
             return response()->json(['message' => 'Booking not found'], 404);
         }
 
-        if ((string) $booking->status !== 'on_route') {
+        if (! in_array((string) $booking->status, ['on_route', 'on_location', 'pob'], true)) {
             return response()->json([
-                'message' => 'Live tracking is only allowed when booking status is on_route',
+                'message' => 'Live tracking is available from on_route until the trip is done',
             ], 422);
         }
 
@@ -83,7 +83,7 @@ class BookingLiveLocationController extends Controller
             ->where('booking_id', $booking->id)
             ->where('type', BookingAccessLink::CUSTOMER)
             ->first();
-        if ($trackingLink?->channel_key) {
+        if ($trackingLink?->channel_key && in_array((string) $booking->status, ['on_location', 'pob'], true)) {
             broadcast(new PublicBookingLocationUpdated($trackingLink->channel_key, $payload))->toOthers();
         }
 
@@ -111,7 +111,9 @@ class BookingLiveLocationController extends Controller
             return response()->json(['message' => 'Booking not found'], 404);
         }
 
-        $location = BookingLiveLocation::where('booking_id', $booking->id)->first();
+        $location = in_array((string) $booking->status, ['on_route', 'on_location', 'pob'], true)
+            ? BookingLiveLocation::where('booking_id', $booking->id)->first()
+            : null;
 
         return response()->json([
             'data' => [
