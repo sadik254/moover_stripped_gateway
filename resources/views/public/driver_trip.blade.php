@@ -7,7 +7,7 @@
 @endif
 <strong>{{ $company?->name ?? config('app.name') }}</strong></div><div id="notice" class="notice">Loading trip…</div><section class="card"><div class="label">Booking</div><h1 style="margin:5px 0 8px;font-size:25px;">#{{ $booking->id }}</h1><div id="status" class="status">{{ str_replace('_',' ',$booking->status) }}</div></section><section class="card"><div class="label">Route</div><div class="route"><small>Pickup</small><strong>{{ $booking->pickup_address }}</strong></div>
 <div id="driverStops">@foreach($booking->stops as $stop)
-<div class="route"><small>Stop {{ $stop->position }}@if($stop->minutes) · {{ $stop->minutes }} min@endif</small><strong>{{ $stop->address }}</strong></div>
+<div class="route"><small>Stop {{ $stop->position }}@if($stop->minutes) · {{ $stop->minutes }} min @endif</small><strong>{{ $stop->address }}</strong></div>
 @endforeach</div>
 @if($booking->dropoff_address)
 <div class="route"><small>Drop-off</small><strong>{{ $booking->dropoff_address }}</strong></div>
