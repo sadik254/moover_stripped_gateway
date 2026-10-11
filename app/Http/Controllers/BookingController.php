@@ -530,7 +530,7 @@ class BookingController extends Controller
             'latestPayment',
         ])
             ->where('company_id', $company->id)
-            ->whereIn('status', ['on_route', 'on_location', 'pob'])
+            ->whereIn('status', ['on_route', 'on_location', 'pob', 'done'])
             ->orderByDesc('pickup_time')
             ->paginate($perPage)
             ->withQueryString();
