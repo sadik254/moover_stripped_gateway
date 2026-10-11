@@ -45,17 +45,21 @@ class PublicTripAccessTest extends TestCase
             ->assertSee('navigator.wakeLock', false)
             ->assertSee("request('screen')", false);
         $this->getJson("/api/public/driver-trips/{$driverToken}")
-            ->assertOk()->assertJsonPath('data.next_status', 'picking_up');
-        $this->postJson("/api/public/driver-trips/{$driverToken}/status", ['status' => 'picking_up'])
             ->assertOk()->assertJsonPath('data.next_status', 'on_route');
+        $this->postJson("/api/public/driver-trips/{$driverToken}/status", ['status' => 'on_route'])
+            ->assertOk()->assertJsonPath('data.next_status', 'on_location');
+        $this->postJson("/api/public/driver-trips/{$driverToken}/stops", [
+            'address' => 'Driver-added stop',
+            'minutes' => 15,
+        ])->assertCreated()->assertJsonPath('stop.minutes', 15);
         $this->postJson("/api/public/driver-trips/{$driverToken}/location", [
             'latitude' => 40.7128,
             'longitude' => -74.0060,
             'accuracy' => 8,
             'heading' => 127.4,
         ])->assertOk()->assertJsonPath('data.heading', 127);
-        $this->postJson("/api/public/driver-trips/{$driverToken}/status", ['status' => 'on_route'])
-            ->assertOk()->assertJsonPath('data.next_status', 'done');
+        $this->postJson("/api/public/driver-trips/{$driverToken}/status", ['status' => 'on_location'])
+            ->assertOk()->assertJsonPath('data.next_status', 'pob');
 
         $trackingUrl = null;
         Mail::assertSent(BookingTrackingStartedMail::class, function (BookingTrackingStartedMail $mail) use (&$trackingUrl): bool {
@@ -71,6 +75,8 @@ class PublicTripAccessTest extends TestCase
             ->assertJsonPath('data.vehicle.plate_number', 'ABC-123')
             ->assertJsonPath('data.location.latitude', 40.7128);
 
+        $this->postJson("/api/public/driver-trips/{$driverToken}/status", ['status' => 'pob'])
+            ->assertOk()->assertJsonPath('data.next_status', 'done');
         $this->postJson("/api/public/driver-trips/{$driverToken}/status", ['status' => 'done'])->assertOk();
         $this->getJson("/api/public/driver-trips/{$driverToken}")->assertNotFound();
 

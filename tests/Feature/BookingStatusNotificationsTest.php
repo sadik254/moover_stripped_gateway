@@ -85,18 +85,18 @@ class BookingStatusNotificationsTest extends TestCase
         });
 
         Sanctum::actingAs($driver, ['driver']);
-        $this->postJson("/api/driver/bookings/{$booking->id}/status", ['status' => 'on_route'])
+        $this->postJson("/api/driver/bookings/{$booking->id}/status", ['status' => 'pob'])
             ->assertUnprocessable()
             ->assertJsonPath('data.current_status', 'assigned')
-            ->assertJsonPath('data.expected_status', 'picking_up');
+            ->assertJsonPath('data.expected_status', 'on_route');
 
-        $this->postJson("/api/driver/bookings/{$booking->id}/status", ['status' => 'picking_up'])
+        $this->postJson("/api/driver/bookings/{$booking->id}/status", ['status' => 'on_route'])
             ->assertOk()
-            ->assertJsonPath('data.status', 'picking_up');
+            ->assertJsonPath('data.status', 'on_route');
 
         Mail::assertSent(BookingStatusChangedMail::class, fn (BookingStatusChangedMail $mail): bool => $mail->hasTo('customer@example.com')
             && $mail->previousStatus === 'assigned'
-            && $mail->booking->status === 'picking_up');
+            && $mail->booking->status === 'on_route');
 
         $this->actingAs($admin, 'sanctum')
             ->postJson("/api/bookings/{$booking->id}/update-status", ['status' => 'done'])

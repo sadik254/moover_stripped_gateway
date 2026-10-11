@@ -116,6 +116,47 @@ class PublicTripController extends Controller
         return response()->json(['message' => 'Location updated', 'data' => $payload]);
     }
 
+    public function addStop(Request $request, string $token)
+    {
+        [$link, $booking] = $this->resolveDriver($token);
+        if (! $link || ! $booking) {
+            return response()->json(['message' => 'This driver link is invalid or expired'], 404);
+        }
+        if (! in_array((string) $booking->status, ['on_route', 'on_location', 'pob'], true)) {
+            return response()->json(['message' => 'Stops can only be added after the driver is on route and before the trip is done'], 422);
+        }
+
+        $validated = $request->validate([
+            'address' => ['required', 'string', 'max:1000'],
+            'minutes' => ['required', 'integer', 'min:1', 'max:240'],
+        ]);
+
+        $stop = null;
+        \DB::transaction(function () use ($booking, $validated, &$stop): void {
+            $position = (int) $booking->stops()->max('position') + 1;
+            $stop = $booking->stops()->create([
+                'address' => $validated['address'],
+                'position' => $position,
+                'minutes' => $validated['minutes'],
+            ]);
+
+            // Stop minutes are treated as operational/waiting time, so they are
+            // included by the existing final-price calculation after the trip.
+            $booking->waiting_minutes = (float) ($booking->waiting_minutes ?? 0) + (int) $validated['minutes'];
+            if ($booking->dropoff_time) {
+                $booking->dropoff_time = Carbon::parse($booking->dropoff_time)->addMinutes((int) $validated['minutes']);
+            }
+            $booking->save();
+        });
+
+        $booking->refresh()->load('stops');
+        return response()->json([
+            'message' => 'Stop added and booking time updated',
+            'data' => $this->driverPayload($booking),
+            'stop' => $stop,
+        ], 201);
+    }
+
     public function trackingPage(string $token)
     {
         [$link, $booking] = $this->resolveCustomer($token);
@@ -214,6 +255,8 @@ class PublicTripController extends Controller
             'pickup_address' => $booking->pickup_address,
             'dropoff_address' => $booking->dropoff_address,
             'pickup_time' => $booking->pickup_time,
+            'dropoff_time' => $booking->dropoff_time,
+            'waiting_minutes' => (float) ($booking->waiting_minutes ?? 0),
             'passenger' => ['name' => $booking->name, 'phone' => $booking->phone],
             'stops' => $booking->stops,
             'vehicle' => $booking->vehicle,
