@@ -71,6 +71,45 @@ class PublicTripController extends Controller
         return response()->json(['message' => 'Booking status updated', 'data' => $this->driverPayload($booking->fresh())]);
     }
 
+    public function respondToDispatch(Request $request, string $token)
+    {
+        [$link, $booking] = $this->resolveDriver($token);
+        if (! $link || ! $booking) {
+            return response()->json(['message' => 'This driver link is invalid or expired'], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'response' => 'required|in:accepted,rejected',
+        ]);
+        if ($validator->fails()) {
+            return response()->json(['message' => 'Validation failed', 'errors' => $validator->errors()], 422);
+        }
+        if ($booking->status !== 'dispatched') {
+            return response()->json(['message' => 'This dispatch has already been responded to'], 422);
+        }
+
+        if ($request->response === 'accepted') {
+            $booking->status = 'assigned';
+            $booking->save();
+
+            return response()->json([
+                'message' => 'Trip accepted. You can now start the trip when ready.',
+                'data' => $this->driverPayload($booking->fresh()),
+            ]);
+        }
+
+        $booking->driver_id = null;
+        $booking->vehicle_id = null;
+        $booking->status = 'confirmed';
+        $booking->save();
+        $link->update(['revoked_at' => now()]);
+
+        return response()->json([
+            'message' => 'Trip declined. Dispatch has been notified.',
+            'data' => $this->driverPayload($booking->fresh()),
+        ]);
+    }
+
     public function updateLocation(Request $request, string $token)
     {
         [$link, $booking] = $this->resolveDriver($token);

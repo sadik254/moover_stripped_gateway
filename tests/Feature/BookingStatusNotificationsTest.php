@@ -76,21 +76,31 @@ class BookingStatusNotificationsTest extends TestCase
                 'vehicle_id' => $vehicle->id,
             ])
             ->assertOk()
-            ->assertJsonPath('data.status', 'assigned')
+            ->assertJsonPath('data.status', 'dispatched')
             ->assertJsonPath('data.driver_id', $driver->id)
             ->assertJsonPath('data.vehicle.id', $vehicle->id);
 
-        Mail::assertSent(BookingDriverAssignedMail::class, function (BookingDriverAssignedMail $mail): bool {
-            return $mail->hasTo('customer@example.com')
-                && str_contains($mail->render(), 'Assigned Driver')
-                && str_contains($mail->render(), 'ABC-123')
-                && str_contains($mail->render(), 'Pickup')
-                && str_contains($mail->render(), 'Drop-off');
-        });
+        Mail::assertNotSent(BookingDriverAssignedMail::class);
+        $driverUrl = null;
         Mail::assertSent(DriverTripAccessMail::class, function (DriverTripAccessMail $mail): bool {
             return $mail->hasTo('driver@example.com')
                 && str_contains($mail->render(), 'Customer Name')
                 && str_contains($mail->render(), 'customer@example.com')
+                && str_contains($mail->render(), 'Pickup')
+                && str_contains($mail->render(), 'Drop-off');
+        });
+        Mail::assertSent(DriverTripAccessMail::class, function (DriverTripAccessMail $mail) use (&$driverUrl): bool {
+            $driverUrl = $mail->driverUrl;
+            return true;
+        });
+
+        $this->postJson('/api/public/driver-trips/'.basename(parse_url($driverUrl, PHP_URL_PATH)).'/dispatch-response', ['response' => 'accepted'])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'assigned');
+        Mail::assertSent(BookingDriverAssignedMail::class, function (BookingDriverAssignedMail $mail): bool {
+            return $mail->hasTo('customer@example.com')
+                && str_contains($mail->render(), 'Assigned Driver')
+                && str_contains($mail->render(), 'ABC-123')
                 && str_contains($mail->render(), 'Pickup')
                 && str_contains($mail->render(), 'Drop-off');
         });

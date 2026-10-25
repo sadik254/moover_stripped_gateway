@@ -41,6 +41,9 @@ class PublicTripAccessTest extends TestCase
         $this->get($driverUrl)
             ->assertOk()
             ->assertSee('Notification Company')
+            ->assertSee('Trip Dispatch')
+            ->assertSee('Accept')
+            ->assertSee('Reject')
             ->assertSee('Passenger')
             ->assertSee('Customer')
             ->assertSee('Trip schedule')
@@ -48,6 +51,8 @@ class PublicTripAccessTest extends TestCase
             ->assertSee('navigator.wakeLock', false)
             ->assertSee("request('screen')", false);
         $this->getJson("/api/public/driver-trips/{$driverToken}")
+            ->assertOk()->assertJsonPath('data.status', 'dispatched');
+        $this->postJson("/api/public/driver-trips/{$driverToken}/dispatch-response", ['response' => 'accepted'])
             ->assertOk()->assertJsonPath('data.next_status', 'on_route');
         $this->postJson("/api/public/driver-trips/{$driverToken}/status", ['status' => 'on_route'])
             ->assertOk()->assertJsonPath('data.next_status', 'on_location');
@@ -113,6 +118,36 @@ class PublicTripAccessTest extends TestCase
             ->assertSee('USD 20.00')
             ->assertSee('Unused authorization released')
             ->assertSee('pi_public_receipt');
+    }
+
+    public function test_driver_can_reject_a_dispatched_trip_and_return_it_to_confirmed(): void
+    {
+        Mail::fake();
+        [$admin, $booking, $driver, $vehicle] = $this->records();
+
+        $this->actingAs($admin, 'sanctum')->postJson("/api/bookings/{$booking->id}/assign-driver", [
+            'driver_id' => $driver->id,
+            'vehicle_id' => $vehicle->id,
+        ])->assertOk()->assertJsonPath('data.status', 'dispatched');
+
+        $driverUrl = null;
+        Mail::assertSent(DriverTripAccessMail::class, function (DriverTripAccessMail $mail) use (&$driverUrl): bool {
+            $driverUrl = $mail->driverUrl;
+
+            return $mail->hasTo('driver@example.com');
+        });
+        $driverToken = basename(parse_url($driverUrl, PHP_URL_PATH));
+
+        $this->postJson("/api/public/driver-trips/{$driverToken}/dispatch-response", ['response' => 'rejected'])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'confirmed');
+        $this->assertDatabaseHas('bookings', [
+            'id' => $booking->id,
+            'status' => 'confirmed',
+            'driver_id' => null,
+            'vehicle_id' => null,
+        ]);
+        $this->getJson("/api/public/driver-trips/{$driverToken}")->assertNotFound();
     }
 
     private function records(): array

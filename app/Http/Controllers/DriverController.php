@@ -440,7 +440,7 @@ class DriverController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'status' => ['sometimes', 'nullable', Rule::in(['pending', 'confirmed', 'assigned', 'on_route', 'on_location', 'pob', 'completed', 'cancelled', 'done'])],
+            'status' => ['sometimes', 'nullable', Rule::in(['pending', 'confirmed', 'dispatched', 'assigned', 'on_route', 'on_location', 'pob', 'completed', 'cancelled', 'done'])],
             'per_page' => 'sometimes|integer|min:1|max:100',
         ]);
 

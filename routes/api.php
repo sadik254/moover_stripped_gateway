@@ -91,6 +91,7 @@ Route::middleware(['auth:sanctum', 'abilities:driver'])->post('driver/update-pas
 
 Route::middleware('throttle:120,1')->prefix('public')->group(function (): void {
     Route::get('driver-trips/{token}', [PublicTripController::class, 'driverData']);
+    Route::post('driver-trips/{token}/dispatch-response', [PublicTripController::class, 'respondToDispatch']);
     Route::post('driver-trips/{token}/status', [PublicTripController::class, 'updateDriverStatus']);
     Route::post('driver-trips/{token}/pause', [PublicTripController::class, 'togglePause']);
     Route::post('driver-trips/{token}/location', [PublicTripController::class, 'updateLocation']);

@@ -33,11 +33,7 @@ class BookingObserver
 
         $customerEmail = $freshBooking->email ?: $freshBooking->customer?->email;
 
-        if ($assignmentChanged) {
-            if ($customerEmail) {
-                $this->send($customerEmail, new BookingDriverAssignedMail($freshBooking), $booking->id);
-            }
-
+        if ($assignmentChanged && $freshBooking->status === 'dispatched') {
             if ($freshBooking->driver?->email) {
                 [, $token] = BookingAccessLink::issue(
                     $freshBooking,
@@ -50,6 +46,14 @@ class BookingObserver
                     new DriverTripAccessMail($freshBooking, route('public.driver-trip', ['token' => $token])),
                     $booking->id
                 );
+            }
+
+            return;
+        }
+
+        if ($statusChanged && $previousStatus === 'dispatched' && $freshBooking->status === 'assigned') {
+            if ($customerEmail) {
+                $this->send($customerEmail, new BookingDriverAssignedMail($freshBooking), $booking->id);
             }
 
             return;

@@ -15,7 +15,7 @@ class DriverTripAccessMail extends Mailable
 
     public function build(): self
     {
-        return $this->subject("Trip control link for booking #{$this->booking->id}")
+        return $this->subject(($this->booking->status === 'dispatched' ? 'Trip offer' : 'Trip control link')." for booking #{$this->booking->id}")
             ->view('emails.driver_trip_access');
     }
 }
