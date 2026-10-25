@@ -51,7 +51,7 @@ class BookingObserver
             return;
         }
 
-        if ($statusChanged && $previousStatus === 'dispatched' && $freshBooking->status === 'assigned') {
+        if ($statusChanged && $freshBooking->status === 'on_route') {
             if ($customerEmail) {
                 $this->send($customerEmail, new BookingDriverAssignedMail($freshBooking), $booking->id);
             }

@@ -97,13 +97,7 @@ class BookingStatusNotificationsTest extends TestCase
         $this->postJson('/api/public/driver-trips/'.basename(parse_url($driverUrl, PHP_URL_PATH)).'/dispatch-response', ['response' => 'accepted'])
             ->assertOk()
             ->assertJsonPath('data.status', 'assigned');
-        Mail::assertSent(BookingDriverAssignedMail::class, function (BookingDriverAssignedMail $mail): bool {
-            return $mail->hasTo('customer@example.com')
-                && str_contains($mail->render(), 'Assigned Driver')
-                && str_contains($mail->render(), 'ABC-123')
-                && str_contains($mail->render(), 'Pickup')
-                && str_contains($mail->render(), 'Drop-off');
-        });
+        Mail::assertNotSent(BookingDriverAssignedMail::class);
 
         Sanctum::actingAs($driver, ['driver']);
         $this->postJson("/api/driver/bookings/{$booking->id}/status", ['status' => 'pob'])
@@ -114,6 +108,14 @@ class BookingStatusNotificationsTest extends TestCase
         $this->postJson("/api/driver/bookings/{$booking->id}/status", ['status' => 'on_route'])
             ->assertOk()
             ->assertJsonPath('data.status', 'on_route');
+        Mail::assertSent(BookingDriverAssignedMail::class, function (BookingDriverAssignedMail $mail): bool {
+            return $mail->hasTo('customer@example.com')
+                && str_contains($mail->render(), 'Assigned Driver')
+                && str_contains($mail->render(), 'ABC-123')
+                && str_contains($mail->render(), 'Pickup')
+                && str_contains($mail->render(), 'Drop-off');
+        });
+
         Mail::assertNotSent(BookingStatusChangedMail::class);
 
         $this->actingAs($admin, 'sanctum')
