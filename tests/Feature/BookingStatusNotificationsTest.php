@@ -85,7 +85,7 @@ class BookingStatusNotificationsTest extends TestCase
         Mail::assertSent(DriverTripAccessMail::class, function (DriverTripAccessMail $mail): bool {
             return $mail->hasTo('driver@example.com')
                 && str_contains($mail->render(), 'Customer Name')
-                && str_contains($mail->render(), 'customer@example.com')
+                && ! str_contains($mail->render(), 'customer@example.com')
                 && str_contains($mail->render(), 'Pickup')
                 && str_contains($mail->render(), 'Drop-off');
         });

@@ -47,6 +47,8 @@ class PublicTripAccessTest extends TestCase
             ->assertSee('Passenger')
             ->assertSee('Customer')
             ->assertSee('Trip schedule')
+            ->assertDontSee('customer@example.com')
+            ->assertDontSee('+12125550101')
             ->assertSee('#'.$booking->id)
             ->assertSee('navigator.wakeLock', false)
             ->assertSee("request('screen')", false);

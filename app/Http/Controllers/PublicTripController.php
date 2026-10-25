@@ -316,7 +316,7 @@ class PublicTripController extends Controller
                 ? Carbon::parse($booking->driver_pause_started_at)->toISOString()
                 : null,
             'pause_minutes' => (int) ($booking->driver_pause_minutes ?? 0),
-            'passenger' => ['name' => $booking->name, 'phone' => $booking->phone],
+            'passenger' => ['name' => $booking->name],
             'stops' => $booking->stops,
             'vehicle' => $booking->vehicle,
         ];
