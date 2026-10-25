@@ -116,6 +116,15 @@ class BookingStatusNotificationsTest extends TestCase
             ->assertJsonPath('data.status', 'on_route');
         Mail::assertNotSent(BookingStatusChangedMail::class);
 
+        $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/bookings/{$booking->id}/update-status", ['status' => 'dispatched'])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'A trip that is on route or later cannot be moved backward to a pre-trip status');
+        $this->postJson("/api/bookings/update/{$booking->id}", ['status' => 'pending'])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'A trip that is on route or later cannot be moved backward to a pre-trip status');
+
+        Sanctum::actingAs($driver, ['driver']);
         $this->postJson("/api/driver/bookings/{$booking->id}/status", ['status' => 'on_location'])
             ->assertOk()
             ->assertJsonPath('data.status', 'on_location');

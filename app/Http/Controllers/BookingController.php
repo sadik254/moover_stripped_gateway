@@ -1103,6 +1103,12 @@ class BookingController extends Controller
             ], 422);
         }
 
+        if ($request->has('status') && $this->wouldMoveStartedTripBackward($booking, (string) $request->status)) {
+            return response()->json([
+                'message' => 'A trip that is on route or later cannot be moved backward to a pre-trip status',
+            ], 422);
+        }
+
         $newServiceType = $request->input('service_type', $booking->service_type);
         $newHours = $request->input('hours', $booking->hours);
 
@@ -1748,6 +1754,12 @@ class BookingController extends Controller
         ) {
             return response()->json([
                 'message' => 'Completed or cancelled bookings cannot be moved to another status',
+            ], 422);
+        }
+
+        if ($this->wouldMoveStartedTripBackward($booking, (string) $request->status)) {
+            return response()->json([
+                'message' => 'A trip that is on route or later cannot be moved backward to a pre-trip status',
             ], 422);
         }
 
@@ -2654,6 +2666,32 @@ class BookingController extends Controller
             'total_price' => $cancellationFee,
             'authorization_amount' => $cancellationFee,
         ];
+    }
+
+    private function wouldMoveStartedTripBackward(Booking $booking, string $nextStatus): bool
+    {
+        if ($nextStatus === 'cancelled') {
+            return false;
+        }
+
+        $statusOrder = [
+            'pending' => 0,
+            'confirmed' => 1,
+            'dispatched' => 2,
+            'assigned' => 3,
+            'on_route' => 4,
+            'on_location' => 5,
+            'pob' => 6,
+            'done' => 7,
+            'completed' => 8,
+        ];
+        $currentOrder = $statusOrder[(string) $booking->status] ?? null;
+        $nextOrder = $statusOrder[$nextStatus] ?? null;
+
+        return $currentOrder !== null
+            && $nextOrder !== null
+            && $currentOrder >= $statusOrder['on_route']
+            && $nextOrder < $currentOrder;
     }
 
     private function captureCancellationPayment(Booking $booking): ?array
