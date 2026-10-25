@@ -15,7 +15,6 @@
                     <div style="padding:16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:16px;">
                         @if ($booking->driver?->photo)<img src="{{ $booking->driver->photo }}" alt="Driver" style="width:72px;height:72px;border-radius:50%;object-fit:cover;margin-bottom:12px;">@endif
                         <div style="font-size:18px;font-weight:700;">{{ $booking->driver?->name ?? 'Assigned driver' }}</div>
-                        @if ($booking->driver?->phone)<div style="margin-top:5px;color:#475569;">Phone: {{ $booking->driver->phone }}</div>@endif
                     </div>
                     @if ($booking->vehicle)
                         <div style="padding:16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:16px;">

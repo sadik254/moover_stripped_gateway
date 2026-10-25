@@ -112,6 +112,8 @@ class BookingStatusNotificationsTest extends TestCase
             return $mail->hasTo('customer@example.com')
                 && str_contains($mail->render(), 'Assigned Driver')
                 && str_contains($mail->render(), 'ABC-123')
+                && ! str_contains($mail->render(), '+12125550100')
+                && ! str_contains($mail->render(), 'driver@example.com')
                 && str_contains($mail->render(), 'Pickup')
                 && str_contains($mail->render(), 'Drop-off');
         });
