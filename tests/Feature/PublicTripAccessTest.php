@@ -152,6 +152,40 @@ class PublicTripAccessTest extends TestCase
         $this->getJson("/api/public/driver-trips/{$driverToken}")->assertNotFound();
     }
 
+    public function test_redispatch_to_the_same_driver_sends_a_fresh_link_and_revokes_the_previous_one(): void
+    {
+        Mail::fake();
+        [$admin, $booking, $driver, $vehicle] = $this->records();
+
+        $this->actingAs($admin, 'sanctum')->postJson("/api/bookings/{$booking->id}/assign-driver", [
+            'driver_id' => $driver->id,
+            'vehicle_id' => $vehicle->id,
+        ])->assertOk()->assertJsonPath('data.status', 'dispatched');
+
+        $firstMail = Mail::sent(DriverTripAccessMail::class)->first();
+        $firstToken = basename(parse_url($firstMail->driverUrl, PHP_URL_PATH));
+        $this->postJson("/api/public/driver-trips/{$firstToken}/dispatch-response", ['response' => 'accepted'])
+            ->assertOk()->assertJsonPath('data.status', 'assigned');
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/bookings/{$booking->id}/update-status", ['status' => 'confirmed'])
+            ->assertOk()->assertJsonPath('data.status', 'confirmed');
+        $this->postJson("/api/bookings/{$booking->id}/assign-driver", [
+            'driver_id' => $driver->id,
+            'vehicle_id' => $vehicle->id,
+        ])->assertOk()->assertJsonPath('data.status', 'dispatched');
+
+        Mail::assertSent(DriverTripAccessMail::class, 2);
+        $secondMail = Mail::sent(DriverTripAccessMail::class)->last();
+        $secondToken = basename(parse_url($secondMail->driverUrl, PHP_URL_PATH));
+
+        $this->assertNotSame($firstToken, $secondToken);
+        $this->getJson("/api/public/driver-trips/{$firstToken}")->assertNotFound();
+        $this->getJson("/api/public/driver-trips/{$secondToken}")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'dispatched');
+    }
+
     private function records(): array
     {
         $admin = User::factory()->create(['user_type' => 'admin']);

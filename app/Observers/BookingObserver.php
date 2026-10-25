@@ -33,7 +33,10 @@ class BookingObserver
 
         $customerEmail = $freshBooking->email ?: $freshBooking->customer?->email;
 
-        if ($assignmentChanged && $freshBooking->status === 'dispatched') {
+        // A redispatch may use the same driver and vehicle, in which case only
+        // the status changes. Every entry into dispatched must issue a fresh
+        // one-time link and revoke the previous active driver link.
+        if ($freshBooking->status === 'dispatched' && ($assignmentChanged || $statusChanged)) {
             if ($freshBooking->driver?->email) {
                 [, $token] = BookingAccessLink::issue(
                     $freshBooking,
