@@ -1093,6 +1093,16 @@ class BookingController extends Controller
             ], 422);
         }
 
+        if (
+            $request->has('status')
+            && in_array((string) $booking->status, ['completed', 'cancelled'], true)
+            && (string) $request->status !== (string) $booking->status
+        ) {
+            return response()->json([
+                'message' => 'Completed or cancelled bookings cannot be moved to another status',
+            ], 422);
+        }
+
         $newServiceType = $request->input('service_type', $booking->service_type);
         $newHours = $request->input('hours', $booking->hours);
 
@@ -1729,6 +1739,15 @@ class BookingController extends Controller
             return response()->json([
                 'message' => 'Validation failed',
                 'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        if (
+            in_array((string) $booking->status, ['completed', 'cancelled'], true)
+            && (string) $request->status !== (string) $booking->status
+        ) {
+            return response()->json([
+                'message' => 'Completed or cancelled bookings cannot be moved to another status',
             ], 422);
         }
 

@@ -136,5 +136,15 @@ class BookingStatusNotificationsTest extends TestCase
         Mail::assertSent(BookingStatusChangedMail::class, fn (BookingStatusChangedMail $mail): bool => $mail->hasTo('customer@example.com')
             && $mail->previousStatus === 'done'
             && $mail->booking->status === 'completed');
+
+        $this->postJson("/api/bookings/update/{$booking->id}", ['status' => 'done'])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Completed or cancelled bookings cannot be moved to another status');
+
+        $booking->status = 'cancelled';
+        $booking->save();
+        $this->postJson("/api/bookings/{$booking->id}/update-status", ['status' => 'confirmed'])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Completed or cancelled bookings cannot be moved to another status');
     }
 }
