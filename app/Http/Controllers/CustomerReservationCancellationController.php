@@ -6,6 +6,7 @@ use App\Mail\CustomerBookingCancelledMail;
 use App\Models\Booking;
 use App\Models\BookingActivity;
 use App\Models\Company;
+use App\Models\Customer;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -33,7 +34,7 @@ class CustomerReservationCancellationController extends Controller
             return response()->json(['message' => 'Booking not found'], 404);
         }
 
-        $eligibilityError = $this->cancellationEligibilityError($booking);
+        $eligibilityError = self::cancellationEligibilityError($booking);
         if ((string) $booking->status === 'cancelled') {
             $eligibilityError = 'This booking is already cancelled';
         } elseif (in_array((string) $booking->status, ['completed', 'done'], true)) {
@@ -74,56 +75,27 @@ class CustomerReservationCancellationController extends Controller
             return response()->json(['message' => 'Booking not found'], 404);
         }
 
-        if ((string) $booking->status === 'cancelled') {
-            return response()->json(['message' => 'This booking is already cancelled'], 422);
-        }
-
-        if (in_array((string) $booking->status, ['completed', 'done'], true)) {
-            return response()->json(['message' => 'This booking can no longer be cancelled'], 422);
-        }
-
-        $eligibilityError = $this->cancellationEligibilityError($booking);
-        if ($eligibilityError) {
-            return response()->json(['message' => $eligibilityError], 422);
-        }
-
-        $previousStatus = (string) $booking->status;
-        $booking->status = 'cancelled';
-        $booking->saveQuietly();
-        $booking->refresh()->loadMissing(['company', 'customer', 'vehicleClass', 'stops']);
-
-        BookingActivity::create([
-            'company_id' => $booking->company_id,
-            'booking_id' => $booking->id,
-            'action' => 'booking_cancelled_by_customer',
-            'description' => 'Booking cancelled by customer through Manage Reservation',
-            'old_values' => ['status' => $previousStatus],
-            'new_values' => ['status' => 'cancelled'],
-            'meta' => ['ip' => $request->ip(), 'user_agent' => (string) $request->userAgent()],
-        ]);
-
-        $this->sendCancellationEmails($booking, $previousStatus);
-
-        return response()->json([
-            'message' => 'Your reservation has been cancelled successfully.',
-            'data' => ['booking_id' => $booking->id, 'status' => $booking->status],
-        ]);
+        return $this->cancelBooking($booking, $request, 'Manage Reservation');
     }
 
-    private function findBooking(Company $company, array $validated): ?Booking
+    /**
+     * Cancel a reservation from the signed-in customer's account.
+     * Ownership is always determined by the authenticated customer, never by
+     * a booking ID supplied by the browser alone.
+     */
+    public function cancelAuthenticated(Request $request, Booking $booking)
     {
-        return Booking::with(['company', 'customer', 'vehicleClass', 'stops'])
-            ->where('company_id', $company->id)
-            ->whereKey($validated['booking_id'])
-            ->whereDate('pickup_time', $validated['trip_date'])
-            ->where(function ($query) use ($validated): void {
-                $query->where('email', $validated['email'])
-                    ->orWhereHas('customer', fn ($customerQuery) => $customerQuery->where('email', $validated['email']));
-            })
-            ->first();
+        $customer = $request->user();
+        if (! $customer instanceof Customer || (int) $booking->customer_id !== (int) $customer->id) {
+            return response()->json(['message' => 'Booking not found'], 404);
+        }
+
+        $booking->loadMissing(['company', 'customer', 'vehicleClass', 'stops']);
+
+        return $this->cancelBooking($booking, $request, 'your account');
     }
 
-    private function cancellationEligibilityError(Booking $booking): ?string
+    public static function cancellationEligibilityError(Booking $booking): ?string
     {
         $serviceType = (string) $booking->service_type;
         if ($serviceType === 'airport') {
@@ -149,6 +121,57 @@ class CustomerReservationCancellationController extends Controller
         }
 
         return null;
+    }
+
+    private function cancelBooking(Booking $booking, Request $request, string $source)
+    {
+        if ((string) $booking->status === 'cancelled') {
+            return response()->json(['message' => 'This booking is already cancelled'], 422);
+        }
+
+        if (in_array((string) $booking->status, ['completed', 'done'], true)) {
+            return response()->json(['message' => 'This booking can no longer be cancelled'], 422);
+        }
+
+        $eligibilityError = self::cancellationEligibilityError($booking);
+        if ($eligibilityError) {
+            return response()->json(['message' => $eligibilityError], 422);
+        }
+
+        $previousStatus = (string) $booking->status;
+        $booking->status = 'cancelled';
+        $booking->saveQuietly();
+        $booking->refresh()->loadMissing(['company', 'customer', 'vehicleClass', 'stops']);
+
+        BookingActivity::create([
+            'company_id' => $booking->company_id,
+            'booking_id' => $booking->id,
+            'action' => 'booking_cancelled_by_customer',
+            'description' => "Booking cancelled by customer through {$source}",
+            'old_values' => ['status' => $previousStatus],
+            'new_values' => ['status' => 'cancelled'],
+            'meta' => ['ip' => $request->ip(), 'user_agent' => (string) $request->userAgent()],
+        ]);
+
+        $this->sendCancellationEmails($booking, $previousStatus);
+
+        return response()->json([
+            'message' => 'Your reservation has been cancelled successfully.',
+            'data' => ['booking_id' => $booking->id, 'status' => $booking->status],
+        ]);
+    }
+
+    private function findBooking(Company $company, array $validated): ?Booking
+    {
+        return Booking::with(['company', 'customer', 'vehicleClass', 'stops'])
+            ->where('company_id', $company->id)
+            ->whereKey($validated['booking_id'])
+            ->whereDate('pickup_time', $validated['trip_date'])
+            ->where(function ($query) use ($validated): void {
+                $query->where('email', $validated['email'])
+                    ->orWhereHas('customer', fn ($customerQuery) => $customerQuery->where('email', $validated['email']));
+            })
+            ->first();
     }
 
     private function sendCancellationEmails(Booking $booking, string $previousStatus): void

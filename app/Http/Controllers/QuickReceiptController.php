@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Booking;
+use App\Models\Customer;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 
@@ -29,6 +30,23 @@ class QuickReceiptController extends Controller
             return response()->json(['message' => 'Booking not found'], 404);
         }
 
+        return $this->streamReceipt($booking);
+    }
+
+    public function downloadForAuthenticatedCustomer(Request $request, Booking $booking)
+    {
+        $customer = $request->user();
+        if (! $customer instanceof Customer || (int) $booking->customer_id !== (int) $customer->id) {
+            return response()->json(['message' => 'Booking not found'], 404);
+        }
+
+        $booking->loadMissing(['company', 'customer', 'vehicleClass', 'airport', 'driver', 'latestPayment', 'payments']);
+
+        return $this->streamReceipt($booking);
+    }
+
+    private function streamReceipt(Booking $booking)
+    {
         $latestPayment = $booking->latestPayment;
         $payment = $booking->payments->first(fn ($item) => in_array((string) $item->payment_kind, ['', 'authorization'], true)) ?: $latestPayment;
         $initialCapturedAmount = (float) $booking->payments

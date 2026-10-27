@@ -115,6 +115,18 @@ class BookingController extends Controller
             ->paginate($perPage)
             ->withQueryString();
         $this->applyPaymentSummaries($bookings->getCollection());
+        $bookings->getCollection()->each(function (Booking $booking): void {
+            $eligibilityError = CustomerReservationCancellationController::cancellationEligibilityError($booking);
+
+            if ((string) $booking->status === 'cancelled') {
+                $eligibilityError = 'This booking is already cancelled';
+            } elseif (in_array((string) $booking->status, ['completed', 'done'], true)) {
+                $eligibilityError = 'This booking can no longer be cancelled';
+            }
+
+            $booking->setAttribute('cancellation_allowed', $eligibilityError === null);
+            $booking->setAttribute('cancellation_message', $eligibilityError);
+        });
 
         return response()->json(['data' => $bookings]);
     }

@@ -132,6 +132,8 @@ Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('bookings
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('bookings/live-operations-feed', [BookingController::class, 'liveOperationsFeed']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('bookings/recent-activity', [BookingController::class, 'recentActivity']);
 Route::middleware(['auth:sanctum', 'abilities:customer'])->get('customer/bookings', [BookingController::class, 'customerBookings']);
+Route::middleware(['auth:sanctum', 'abilities:customer'])->post('customer/bookings/{booking}/cancel', [CustomerReservationCancellationController::class, 'cancelAuthenticated']);
+Route::middleware(['auth:sanctum', 'abilities:customer'])->get('customer/bookings/{booking}/quick-receipt', [QuickReceiptController::class, 'downloadForAuthenticatedCustomer']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('bookings/{id}', [BookingController::class, 'show']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->get('bookings/{id}/live-location', [BookingLiveLocationController::class, 'showForAdmin']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('bookings/update/{id}', [BookingController::class, 'update']);
