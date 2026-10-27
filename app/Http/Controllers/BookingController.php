@@ -1105,6 +1105,28 @@ class BookingController extends Controller
             ], 422);
         }
 
+        if ($request->has('driver_id') && (int) $request->input('driver_id') !== (int) $booking->driver_id) {
+            return response()->json([
+                'message' => 'Use the driver dispatch action to assign or change a driver.',
+            ], 422);
+        }
+
+        if ($request->has('status') && (string) $request->status === 'dispatched') {
+            return response()->json([
+                'message' => 'A driver must be selected through the dispatch action before a booking can be dispatched.',
+            ], 422);
+        }
+
+        if (
+            $request->has('status')
+            && (string) $request->status === 'assigned'
+            && ((string) $booking->status !== 'dispatched' || ! $booking->driver_id)
+        ) {
+            return response()->json([
+                'message' => 'A booking must first be dispatched to a driver before it can be assigned.',
+            ], 422);
+        }
+
         if (
             $request->has('status')
             && in_array((string) $booking->status, ['completed', 'cancelled'], true)
@@ -1197,10 +1219,6 @@ class BookingController extends Controller
                 if ($request->has('stops')) {
                     $booking->extra_stops = count($request->input('stops', []));
                     $this->syncStops($booking, $request->input('stops', []));
-                }
-
-                if ($booking->isDirty('driver_id') && $booking->driver_id !== null) {
-                    $booking->status = 'assigned';
                 }
 
                 $latestPriceCalculation = null;
@@ -1767,6 +1785,21 @@ class BookingController extends Controller
             return response()->json([
                 'message' => 'Validation failed',
                 'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        if ((string) $request->status === 'dispatched') {
+            return response()->json([
+                'message' => 'A driver must be selected through the dispatch action before a booking can be dispatched.',
+            ], 422);
+        }
+
+        if (
+            (string) $request->status === 'assigned'
+            && ((string) $booking->status !== 'dispatched' || ! $booking->driver_id)
+        ) {
+            return response()->json([
+                'message' => 'A booking must first be dispatched to a driver before it can be assigned.',
             ], 422);
         }
 
