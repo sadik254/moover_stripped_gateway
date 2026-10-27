@@ -36,5 +36,6 @@
             </td>
         </tr>
     </table>
+@include('emails.partials.tlc_base')
 </body>
 </html>

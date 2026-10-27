@@ -156,7 +156,7 @@
             @endif
         </div>
 
-        <div class="footer">Thank you for riding with {{ $booking->company?->name ?? config('app.name', 'Moover') }}.</div>
+        <div class="footer">Thank you for riding with {{ $booking->company?->name ?? config('app.name', 'Moover') }}.<br><strong>TLC Base # B03459</strong></div>
     </div>
 </body>
 </html>

@@ -66,5 +66,5 @@
             <div class="detail"><span>Pricing method</span><strong>{{ $booking->pricing_method ? ucwords(str_replace('_', ' ', $booking->pricing_method)) : 'Not provided' }}</strong></div>
         </div></section>
     </div>
-    <footer class="footer">Thank you for riding with {{ $booking->company?->name ?? config('app.name') }}.<br>This read-only receipt link does not require a login.</footer>
+    <footer class="footer">Thank you for riding with {{ $booking->company?->name ?? config('app.name') }}.<br><strong>TLC Base # B03459</strong><br>This read-only receipt link does not require a login.</footer>
 </main></body></html>
