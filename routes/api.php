@@ -154,6 +154,7 @@ Route::post('payments/webhook/stripe', [BookingPaymentController::class, 'webhoo
 Route::middleware(['auth:sanctum'])->get('bookings/{id}/payment', [BookingPaymentController::class, 'show']);
 Route::post('bookings/{id}/payment/authorize', [BookingPaymentController::class, 'authorizePayment']);
 Route::middleware(['auth:sanctum'])->post('bookings/{id}/payment/capture', [BookingPaymentController::class, 'capturePayment']);
+Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('bookings/{id}/payment/collect-additional', [BookingPaymentController::class, 'collectAdditionalPayment']);
 
 // Broadcast auth for Sanctum tokens (private channels from SPA/dashboard)
 Route::middleware(['auth:sanctum'])->post('broadcasting/auth', [BroadcastController::class, 'authenticate']);

@@ -1571,7 +1571,12 @@ class BookingController extends Controller
             ], 422);
         }
 
-        $payment = BookingPayment::where('booking_id', $booking->id)->latest()->first();
+        $payment = BookingPayment::where('booking_id', $booking->id)
+            ->where(function ($query): void {
+                $query->where('payment_kind', 'authorization')->orWhereNull('payment_kind');
+            })
+            ->latest()
+            ->first();
         $isAdminBooking = (string) $booking->booking_origin === 'admin';
         if (! $isAdminBooking && (! $payment || (string) $payment->status !== 'requires_capture')) {
             return response()->json([
@@ -1644,9 +1649,9 @@ class BookingController extends Controller
         $priceCalculation = $this->calculatePrice($vehicleClass, $this->buildPriceInput($booking, $systemConfig));
         $finalPrice = (float) $priceCalculation['total_price'];
 
-        if (! $isAdminBooking && $finalPrice > (float) $payment->authorized_amount) {
+        if (! $isAdminBooking && $finalPrice > (float) $payment->authorized_amount && ! $payment->consent_granted_at) {
             return response()->json([
-                'message' => 'Final price exceeds authorized amount. Additional charge flow is required.',
+                'message' => 'Final price exceeds authorized amount and no consented saved payment method is available. Send a Stripe invoice instead.',
                 'data' => [
                     'final_price' => $finalPrice,
                     'authorized_amount' => (float) $payment->authorized_amount,
@@ -1675,7 +1680,9 @@ class BookingController extends Controller
             $booking->save();
 
             if ($payment) {
-                $payment->amount_to_capture = $finalPrice;
+                // A manual Stripe authorization cannot be captured above its
+                // original hold. Any consented excess is collected separately.
+                $payment->amount_to_capture = min($finalPrice, (float) $payment->authorized_amount);
                 $payment->save();
             }
         });
@@ -1711,6 +1718,9 @@ class BookingController extends Controller
                 'original_rate_buffer_amount' => $originalRateBufferAmount,
                 'authorized_amount' => (float) ($payment?->authorized_amount ?? 0),
                 'amount_to_capture' => $finalPrice,
+                'post_trip_charge_amount' => $payment
+                    ? round(max(0, $finalPrice - (float) $payment->authorized_amount), 2)
+                    : 0,
                 'remaining_authorization' => $payment ? round((float) $payment->authorized_amount - $finalPrice, 2) : 0,
                 'unused_authorization' => $payment ? round((float) $payment->authorized_amount - $finalPrice, 2) : 0,
             ],

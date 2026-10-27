@@ -13,10 +13,15 @@ class BookingPayment extends Model
         'booking_id',
         'customer_id',
         'provider',
+        'payment_kind',
         'currency',
         'payment_intent_id',
         'stripe_invoice_id',
         'payment_method_id',
+        'stripe_customer_id',
+        'consent_granted_at',
+        'consent_version',
+        'consent_text',
         'estimated_amount',
         'authorized_amount',
         'captured_amount',
@@ -29,6 +34,7 @@ class BookingPayment extends Model
 
     protected $casts = [
         'raw_payload' => 'array',
+        'consent_granted_at' => 'datetime',
     ];
 
     public function booking()

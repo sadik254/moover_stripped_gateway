@@ -19,12 +19,17 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Stripe\Exception\ApiErrorException;
 use Stripe\Exception\SignatureVerificationException;
+use Stripe\Customer as StripeCustomer;
 use Stripe\PaymentIntent;
 use Stripe\Stripe;
 use Stripe\Webhook;
 
 class BookingPaymentController extends Controller
 {
+    private const POST_TRIP_CONSENT_VERSION = '2026-10-27';
+
+    private const POST_TRIP_CONSENT_TEXT = 'I authorize Square Limousine to charge my saved payment method after the trip for disclosed post-trip adjustments, including extra stops, waiting time, tolls, parking, airport fees, congestion charges, and other agreed charges.';
+
     public function webhook(Request $request)
     {
         $payload = $request->getContent();
@@ -119,7 +124,7 @@ class BookingPaymentController extends Controller
             if ($booking) {
                 switch ($event->type) {
                     case 'payment_intent.succeeded':
-                        $booking->payment_status = 'paid';
+                        $this->syncBookingPaymentStatus($booking);
                         break;
                     case 'payment_intent.payment_failed':
                         $booking->payment_status = 'failed';
@@ -132,7 +137,9 @@ class BookingPaymentController extends Controller
                         break;
                 }
 
-                $booking->save();
+                if ($event->type !== 'payment_intent.succeeded') {
+                    $booking->save();
+                }
 
                 if ($event->type === 'payment_intent.succeeded') {
                     $this->sendPublicReceipt($booking, $payment);
@@ -181,6 +188,7 @@ class BookingPaymentController extends Controller
         $validator = Validator::make($request->all(), [
             'payment_method_id' => 'required|string|max:255',
             'booking_access_token' => 'nullable|string|max:80',
+            'post_trip_charge_consent' => 'required|accepted',
         ]);
 
         if ($validator->fails()) {
@@ -227,12 +235,16 @@ class BookingPaymentController extends Controller
         try {
             Stripe::setApiKey((string) config('services.stripe.secret_key'));
 
+            $stripeCustomerId = $this->resolveStripeCustomerId($booking);
+
             $intent = PaymentIntent::create([
                 'amount' => $amountInCents,
                 'currency' => $currency,
                 'capture_method' => 'manual',
                 'confirm' => true,
                 'payment_method' => $request->payment_method_id,
+                'customer' => $stripeCustomerId,
+                'setup_future_usage' => 'off_session',
                 'payment_method_types' => ['card'],
                 'description' => "Booking #{$booking->id} authorization",
                 'metadata' => [
@@ -245,9 +257,14 @@ class BookingPaymentController extends Controller
                 'booking_id' => $booking->id,
                 'customer_id' => $booking->customer_id,
                 'provider' => 'stripe',
+                'payment_kind' => 'authorization',
                 'currency' => $currency,
                 'payment_intent_id' => $intent->id,
                 'payment_method_id' => $request->payment_method_id,
+                'stripe_customer_id' => $stripeCustomerId,
+                'consent_granted_at' => now(),
+                'consent_version' => self::POST_TRIP_CONSENT_VERSION,
+                'consent_text' => self::POST_TRIP_CONSENT_TEXT,
                 'estimated_amount' => $estimatedAmount,
                 'authorized_amount' => $authorizedAmount,
                 'status' => $intent->status,
@@ -404,9 +421,206 @@ class BookingPaymentController extends Controller
         }
     }
 
+    /**
+     * Captures the original authorization (when still capturable), then charges
+     * only the remaining finalized balance using the rider's consented saved card.
+     */
+    public function collectAdditionalPayment(Request $request, $bookingId)
+    {
+        $booking = Booking::where('company_id', $this->companyId())->find($bookingId);
+        if (! $booking) {
+            return response()->json(['message' => 'Booking not found'], 404);
+        }
+
+        if (! $this->canAccessBooking($request->user(), $booking, false)) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        if ((string) $booking->status !== 'completed') {
+            return response()->json(['message' => 'Complete the booking before collecting post-trip charges'], 422);
+        }
+
+        $authorization = BookingPayment::where('booking_id', $booking->id)
+            ->where(function ($query): void {
+                $query->where('payment_kind', 'authorization')->orWhereNull('payment_kind');
+            })
+            ->latest()
+            ->first();
+
+        if (! $authorization || ! $authorization->stripe_customer_id || ! $authorization->payment_method_id || ! $authorization->consent_granted_at) {
+            return response()->json([
+                'message' => 'No consented saved payment method is available for this booking. Send a Stripe invoice instead.',
+            ], 422);
+        }
+
+        $finalAmount = round((float) ($booking->final_price ?? 0), 2);
+        if ($finalAmount <= 0) {
+            return response()->json(['message' => 'Booking final_price must be greater than 0'], 422);
+        }
+
+        $outstandingAmount = $finalAmount;
+
+        try {
+            Stripe::setApiKey((string) config('services.stripe.secret_key'));
+
+            if ((string) $authorization->status === 'requires_capture') {
+                $captureAmount = min($finalAmount, (float) $authorization->authorized_amount);
+                try {
+                    $intent = PaymentIntent::retrieve($authorization->payment_intent_id);
+                    $capturedIntent = $intent->capture([
+                        'amount_to_capture' => (int) round($captureAmount * 100),
+                    ]);
+                    $authorization->captured_amount = $captureAmount;
+                    $authorization->amount_to_capture = $captureAmount;
+                    $authorization->status = $capturedIntent->status;
+                    $authorization->raw_payload = $capturedIntent->toArray();
+                    $authorization->save();
+                } catch (ApiErrorException $captureError) {
+                    // Holds can expire before trip completion. In that case the
+                    // saved card still lets us charge the finalized fare once.
+                    $authorization->status = 'capture_failed';
+                    $authorization->failure_code = method_exists($captureError, 'getStripeCode')
+                        ? $captureError->getStripeCode()
+                        : null;
+                    $authorization->failure_message = $captureError->getMessage();
+                    $authorization->save();
+                }
+            }
+
+            $capturedAuthorization = (float) ($authorization->captured_amount ?? 0);
+            $successfulAdjustments = (float) BookingPayment::where('booking_id', $booking->id)
+                ->where('payment_kind', 'post_trip_adjustment')
+                ->where('status', 'succeeded')
+                ->sum('captured_amount');
+            $outstandingAmount = round(max(0, $finalAmount - $capturedAuthorization - $successfulAdjustments), 2);
+
+            if ($outstandingAmount <= 0) {
+                $booking->payment_status = 'paid';
+                $booking->save();
+                return response()->json(['message' => 'Booking is already paid in full', 'data' => ['outstanding_amount' => 0]]);
+            }
+
+            $attempt = BookingPayment::where('booking_id', $booking->id)
+                ->where('payment_kind', 'post_trip_adjustment')
+                ->count() + 1;
+            $intent = PaymentIntent::create([
+                'amount' => (int) round($outstandingAmount * 100),
+                'currency' => $authorization->currency,
+                'confirm' => true,
+                'off_session' => true,
+                'customer' => $authorization->stripe_customer_id,
+                'payment_method' => $authorization->payment_method_id,
+                'payment_method_types' => ['card'],
+                'description' => "Booking #{$booking->id} post-trip adjustment",
+                'metadata' => [
+                    'booking_id' => (string) $booking->id,
+                    'company_id' => (string) $booking->company_id,
+                    'payment_kind' => 'post_trip_adjustment',
+                ],
+            ], [
+                'idempotency_key' => "booking-{$booking->id}-post-trip-{$attempt}-".number_format($outstandingAmount, 2, '.', ''),
+            ]);
+
+            $adjustment = BookingPayment::firstOrCreate(
+                ['payment_intent_id' => $intent->id],
+                [
+                    'booking_id' => $booking->id,
+                    'customer_id' => $booking->customer_id,
+                    'provider' => 'stripe',
+                    'payment_kind' => 'post_trip_adjustment',
+                    'currency' => $authorization->currency,
+                    'payment_method_id' => $authorization->payment_method_id,
+                    'stripe_customer_id' => $authorization->stripe_customer_id,
+                    'estimated_amount' => $outstandingAmount,
+                    'authorized_amount' => $outstandingAmount,
+                    'captured_amount' => $intent->status === 'succeeded' ? $outstandingAmount : null,
+                    'amount_to_capture' => $outstandingAmount,
+                    'status' => $intent->status,
+                    'raw_payload' => $intent->toArray(),
+                ]
+            );
+
+            $this->syncBookingPaymentStatus($booking);
+            if ($intent->status === 'succeeded') {
+                $this->sendPublicReceipt($booking, $adjustment);
+            }
+
+            return response()->json([
+                'message' => $intent->status === 'succeeded'
+                    ? 'Post-trip balance collected successfully'
+                    : 'Post-trip payment requires customer action',
+                'data' => ['payment' => $adjustment->fresh(), 'outstanding_amount' => $outstandingAmount],
+            ], $intent->status === 'succeeded' ? 201 : 422);
+        } catch (ApiErrorException $e) {
+            $errorBody = method_exists($e, 'getJsonBody') ? $e->getJsonBody() : null;
+            $failedIntentId = data_get($errorBody, 'error.payment_intent.id');
+            if ($outstandingAmount > 0 && (! $failedIntentId || ! BookingPayment::where('payment_intent_id', $failedIntentId)->exists())) {
+                BookingPayment::create([
+                    'booking_id' => $booking->id,
+                    'customer_id' => $booking->customer_id,
+                    'provider' => 'stripe',
+                    'payment_kind' => 'post_trip_adjustment',
+                    'currency' => $authorization->currency,
+                    'payment_intent_id' => $failedIntentId ?: 'failed_adjustment_'.Str::uuid()->toString(),
+                    'payment_method_id' => $authorization->payment_method_id,
+                    'stripe_customer_id' => $authorization->stripe_customer_id,
+                    'estimated_amount' => $outstandingAmount,
+                    'authorized_amount' => $outstandingAmount,
+                    'amount_to_capture' => $outstandingAmount,
+                    'status' => 'failed',
+                    'failure_code' => data_get($errorBody, 'error.code'),
+                    'failure_message' => $e->getMessage(),
+                    'raw_payload' => $errorBody ?: ['message' => $e->getMessage()],
+                ]);
+            }
+            $booking->payment_status = 'additional_payment_required';
+            $booking->save();
+            return response()->json([
+                'message' => 'Unable to collect the post-trip balance. Send a Stripe invoice instead.',
+                'error' => $e->getMessage(),
+            ], 422);
+        }
+    }
+
     private function companyId(): ?int
     {
         return Company::query()->value('id');
+    }
+
+    private function resolveStripeCustomerId(Booking $booking): string
+    {
+        $existingCustomerId = $booking->customer_id
+            ? BookingPayment::where('customer_id', $booking->customer_id)
+                ->whereNotNull('stripe_customer_id')
+                ->latest()
+                ->value('stripe_customer_id')
+            : null;
+
+        if ($existingCustomerId) {
+            return $existingCustomerId;
+        }
+
+        $customer = StripeCustomer::create([
+            'name' => $booking->name,
+            'email' => $booking->email,
+            'phone' => $booking->phone,
+            'metadata' => [
+                'customer_id' => (string) ($booking->customer_id ?? ''),
+                'company_id' => (string) $booking->company_id,
+            ],
+        ]);
+
+        return $customer->id;
+    }
+
+    private function syncBookingPaymentStatus(Booking $booking): void
+    {
+        $paidAmount = (float) $booking->payments()
+            ->where('status', 'succeeded')
+            ->sum('captured_amount');
+        $finalAmount = (float) ($booking->final_price ?? 0);
+        $booking->payment_status = $paidAmount >= $finalAmount ? 'paid' : 'additional_payment_required';
+        $booking->save();
     }
 
     private function sendPublicReceipt(Booking $booking, BookingPayment $payment): void
