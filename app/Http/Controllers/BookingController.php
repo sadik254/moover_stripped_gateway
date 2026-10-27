@@ -1435,6 +1435,7 @@ class BookingController extends Controller
                 'nullable',
                 Rule::exists('vehicles', 'id')->where('company_id', $company->id),
             ],
+            'force_assign' => ['sometimes', 'boolean'],
         ]);
 
         if ($validator->fails()) {
@@ -1454,9 +1455,13 @@ class BookingController extends Controller
         $dropoff = $booking->dropoff_time ? Carbon::parse($booking->dropoff_time) : null;
         $unavailableDriverIds = $this->getUnavailableDriverIds($company->id, $pickup, $dropoff, $booking->id);
 
-        if (in_array((int) $request->driver_id, $unavailableDriverIds, true)) {
+        if (
+            ! $request->boolean('force_assign')
+            && in_array((int) $request->driver_id, $unavailableDriverIds, true)
+        ) {
             return response()->json([
-                'message' => 'Selected driver is not available for the requested time',
+                'message' => 'Selected driver has an overlapping active booking. Confirm to assign anyway.',
+                'code' => 'driver_schedule_conflict',
             ], 409);
         }
 
@@ -2022,6 +2027,7 @@ class BookingController extends Controller
         $windowEnd = $dropoff ? $dropoff : $pickup->copy()->addHours(2);
 
         $query = Booking::where('company_id', $companyId)
+            ->whereNotIn('status', ['completed', 'cancelled'])
             ->where(function ($query) use ($windowStart, $windowEnd) {
                 $query->where(function ($q) use ($windowStart, $windowEnd) {
                     $q->whereNotNull('dropoff_time')
