@@ -16,7 +16,7 @@ class QuickReceiptController extends Controller
             'trip_date' => ['required', 'date_format:Y-m-d'],
         ]);
 
-        $booking = Booking::with(['company', 'customer', 'vehicleClass', 'airport', 'driver', 'latestPayment'])
+        $booking = Booking::with(['company', 'customer', 'vehicleClass', 'airport', 'driver', 'latestPayment', 'payments'])
             ->whereKey($validated['booking_id'])
             ->whereDate('pickup_time', $validated['trip_date'])
             ->where(function ($query) use ($validated): void {
@@ -29,7 +29,16 @@ class QuickReceiptController extends Controller
             return response()->json(['message' => 'Booking not found'], 404);
         }
 
-        $payment = $booking->latestPayment;
+        $latestPayment = $booking->latestPayment;
+        $payment = $booking->payments->first(fn ($item) => in_array((string) $item->payment_kind, ['', 'authorization'], true)) ?: $latestPayment;
+        $initialCapturedAmount = (float) $booking->payments
+            ->where('status', 'succeeded')
+            ->filter(fn ($item) => in_array((string) $item->payment_kind, ['', 'authorization'], true))
+            ->sum('captured_amount');
+        $postTripAdjustmentAmount = (float) $booking->payments
+            ->where('status', 'succeeded')
+            ->where('payment_kind', 'post_trip_adjustment')
+            ->sum('captured_amount');
         $receiptTotal = (float) ($booking->final_price ?? $booking->total_price ?? 0);
         $subtotal = max(0, $receiptTotal
             - (float) ($booking->taxes_amount ?? 0)
@@ -57,6 +66,7 @@ class QuickReceiptController extends Controller
         return Pdf::loadView('pdf.quick_receipt', [
             'booking' => $booking,
             'payment' => $payment,
+            'latestPayment' => $latestPayment,
             'currency' => strtoupper((string) ($payment?->currency ?: 'USD')),
             'receiptTotal' => $receiptTotal,
             'tripFare' => $tripFare,
@@ -64,6 +74,9 @@ class QuickReceiptController extends Controller
             'authorizationBuffer' => $authorizationBuffer,
             'authorizationBufferPercent' => $authorizationBufferPercent,
             'unusedAuthorization' => $unusedAuthorization,
+            'initialCapturedAmount' => $initialCapturedAmount,
+            'postTripAdjustmentAmount' => $postTripAdjustmentAmount,
+            'totalPaidAmount' => $initialCapturedAmount + $postTripAdjustmentAmount,
             'passengerName' => $booking->name ?: $booking->customer?->name ?: 'Passenger',
             'passengerEmail' => $booking->email ?: $booking->customer?->email,
             'passengerPhone' => $booking->phone ?: $booking->customer?->phone,

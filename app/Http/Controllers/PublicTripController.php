@@ -238,11 +238,20 @@ class PublicTripController extends Controller
     public function receiptPage(string $token)
     {
         $link = BookingAccessLink::resolveToken($token, BookingAccessLink::RECEIPT);
-        $booking = $link?->booking?->load(['company', 'customer', 'vehicleClass', 'airport', 'driver', 'vehicle', 'latestPayment', 'stops']);
+        $booking = $link?->booking?->load(['company', 'customer', 'vehicleClass', 'airport', 'driver', 'vehicle', 'latestPayment', 'payments', 'stops']);
         abort_unless($link && $booking, 404);
 
-        $payment = $booking->latestPayment;
-        $receiptTotal = (float) ($payment?->captured_amount ?? $booking->final_price ?? $booking->total_price ?? 0);
+        $latestPayment = $booking->latestPayment;
+        $payment = $booking->payments->first(fn ($item) => in_array((string) $item->payment_kind, ['', 'authorization'], true)) ?: $latestPayment;
+        $initialCapturedAmount = (float) $booking->payments
+            ->where('status', 'succeeded')
+            ->filter(fn ($item) => in_array((string) $item->payment_kind, ['', 'authorization'], true))
+            ->sum('captured_amount');
+        $postTripAdjustmentAmount = (float) $booking->payments
+            ->where('status', 'succeeded')
+            ->where('payment_kind', 'post_trip_adjustment')
+            ->sum('captured_amount');
+        $receiptTotal = (float) ($booking->final_price ?? $booking->total_price ?? 0);
         $subtotal = max(0, $receiptTotal
             - (float) ($booking->taxes_amount ?? 0)
             - (float) ($booking->gratuity_amount ?? 0)
@@ -269,6 +278,7 @@ class PublicTripController extends Controller
         return view('public.trip_receipt', [
             'booking' => $booking,
             'payment' => $payment,
+            'latestPayment' => $latestPayment,
             'currency' => strtoupper((string) ($payment?->currency ?: 'USD')),
             'receiptTotal' => $receiptTotal,
             'tripFare' => $tripFare,
@@ -276,6 +286,9 @@ class PublicTripController extends Controller
             'authorizationBuffer' => $authorizationBuffer,
             'authorizationBufferPercent' => $authorizationBufferPercent,
             'unusedAuthorization' => $unusedAuthorization,
+            'initialCapturedAmount' => $initialCapturedAmount,
+            'postTripAdjustmentAmount' => $postTripAdjustmentAmount,
+            'totalPaidAmount' => $initialCapturedAmount + $postTripAdjustmentAmount,
         ]);
     }
 

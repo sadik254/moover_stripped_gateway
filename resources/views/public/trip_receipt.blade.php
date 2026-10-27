@@ -49,7 +49,7 @@
             ] as $label => $amount)
                 @if ((float) $amount > 0)<div class="money-row"><span>{{ $label }}</span><strong>{{ $currency }} {{ number_format((float) $amount, 2) }}</strong></div>@endif
             @endforeach
-            <div class="money-row total"><span>Total charged</span><span>{{ $currency }} {{ number_format($receiptTotal, 2) }}</span></div>
+            <div class="money-row total"><span>Final trip total</span><span>{{ $currency }} {{ number_format($receiptTotal, 2) }}</span></div>
         </div></section>
 
         <section class="section"><h2 class="section-title">Payment information</h2><div class="panel grid">
@@ -58,7 +58,9 @@
             <div class="detail"><span>Original estimate</span><strong>{{ $currency }} {{ number_format($estimatedAmount, 2) }}</strong></div>
             <div class="detail"><span>Authorization buffer{{ $authorizationBufferPercent > 0 ? ' ('.number_format($authorizationBufferPercent, 2).'%)' : '' }}</span><strong>{{ $currency }} {{ number_format($authorizationBuffer, 2) }}</strong></div>
             <div class="detail"><span>Authorized amount</span><strong>{{ $payment ? $currency.' '.number_format((float) $payment->authorized_amount, 2) : 'Not available' }}</strong></div>
-            <div class="detail"><span>Captured amount</span><strong>{{ $payment?->captured_amount !== null ? $currency.' '.number_format((float) $payment->captured_amount, 2) : 'Not captured' }}</strong></div>
+            <div class="detail"><span>Initial payment captured</span><strong>{{ $currency }} {{ number_format($initialCapturedAmount, 2) }}</strong></div>
+            @if ($postTripAdjustmentAmount > 0)<div class="detail"><span>Post-trip adjustment</span><strong>{{ $currency }} {{ number_format($postTripAdjustmentAmount, 2) }}</strong></div>@endif
+            <div class="detail"><span>Total paid</span><strong>{{ $currency }} {{ number_format($totalPaidAmount, 2) }}</strong></div>
             <div class="detail"><span>Unused authorization released</span><strong>{{ $currency }} {{ number_format($unusedAuthorization, 2) }}</strong></div>
             @if ($payment?->payment_intent_id)<div class="detail"><span>Payment reference</span><strong>{{ $payment->payment_intent_id }}</strong></div>@endif
             <div class="detail"><span>Pricing method</span><strong>{{ $booking->pricing_method ? ucwords(str_replace('_', ' ', $booking->pricing_method)) : 'Not provided' }}</strong></div>

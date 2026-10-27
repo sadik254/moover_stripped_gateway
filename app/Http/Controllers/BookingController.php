@@ -2273,11 +2273,12 @@ class BookingController extends Controller
 
     private function applyPaymentSummary(Booking $booking): Booking
     {
-        $payment = $booking->relationLoaded('latestPayment')
+        $latestPayment = $booking->relationLoaded('latestPayment')
             ? $booking->latestPayment
             : $booking->latestPayment()->select([
                 'id',
                 'booking_id',
+                'payment_kind',
                 'currency',
                 'estimated_amount',
                 'authorized_amount',
@@ -2286,19 +2287,32 @@ class BookingController extends Controller
                 'status',
             ])->first();
 
+        // A booking can now have an initial authorization and one or more
+        // post-trip payments. Pricing must always come from the booking, never
+        // from the newest individual payment record.
+        $authorizationPayment = $booking->payments()
+            ->where(function ($query): void {
+                $query->where('payment_kind', 'authorization')->orWhereNull('payment_kind');
+            })
+            ->latest()
+            ->first();
+        $successfulPayments = $booking->payments()
+            ->where('status', 'succeeded')
+            ->get(['payment_kind', 'captured_amount']);
+
+        $payment = $authorizationPayment ?: $latestPayment;
+
         $authorizedAmount = $payment?->authorized_amount !== null
             ? (float) $payment->authorized_amount
             : null;
-        $capturedAmount = $payment?->captured_amount !== null
-            ? (float) $payment->captured_amount
-            : null;
-        $isPaidAndCompleted = (string) $booking->status === 'completed'
-            && (string) $booking->payment_status === 'paid'
-            && $capturedAmount !== null;
-
-        $displayFinalPrice = $isPaidAndCompleted
-            ? $capturedAmount
-            : ($authorizedAmount ?? (float) ($booking->getRawOriginal('final_price') ?? 0));
+        $initialCapturedAmount = (float) $successfulPayments
+            ->filter(fn (BookingPayment $item): bool => in_array((string) $item->payment_kind, ['', 'authorization'], true))
+            ->sum('captured_amount');
+        $postTripAdjustmentAmount = (float) $successfulPayments
+            ->where('payment_kind', 'post_trip_adjustment')
+            ->sum('captured_amount');
+        $capturedAmount = round($initialCapturedAmount + $postTripAdjustmentAmount, 2);
+        $displayFinalPrice = (float) ($booking->getRawOriginal('final_price') ?? $booking->total_price ?? 0);
 
         $estimatedAmount = $payment?->estimated_amount !== null
             ? (float) $payment->estimated_amount
@@ -2330,8 +2344,11 @@ class BookingController extends Controller
         $booking->setAttribute('captured_amount', $capturedAmount);
         $booking->setAttribute('amount_to_capture', $payment?->amount_to_capture !== null ? (float) $payment->amount_to_capture : null);
         $booking->setAttribute('payment_currency', $payment?->currency);
-        $booking->setAttribute('latest_payment_status', $payment?->status);
-        $booking->setAttribute('final_price', $displayFinalPrice);
+        $booking->setAttribute('latest_payment_status', $latestPayment?->status);
+        $booking->setAttribute('initial_captured_amount', $initialCapturedAmount);
+        $booking->setAttribute('post_trip_adjustment_amount', $postTripAdjustmentAmount);
+        $booking->setAttribute('total_paid_amount', $capturedAmount);
+        $booking->setAttribute('outstanding_payment_amount', round(max(0, $displayFinalPrice - $capturedAmount), 2));
         $booking->setAttribute('pricing_type', $booking->service_type);
         $booking->setAttribute('pricing_details', [
             'pricing_type' => $booking->service_type,
@@ -2366,6 +2383,10 @@ class BookingController extends Controller
                 ? (float) $booking->getRawOriginal('final_price')
                 : null,
             'captured_total' => $capturedAmount,
+            'initial_captured_amount' => $initialCapturedAmount,
+            'post_trip_adjustment_amount' => $postTripAdjustmentAmount,
+            'total_paid_amount' => $capturedAmount,
+            'outstanding_payment_amount' => round(max(0, $displayFinalPrice - $capturedAmount), 2),
             'display_final_price' => $displayFinalPrice,
             'currency' => $payment?->currency,
         ]);
