@@ -51,6 +51,8 @@ class BookingController extends Controller
         $validator = Validator::make($request->all(), [
             'status' => ['sometimes', 'nullable', Rule::in(['pending', 'confirmed', 'dispatched', 'assigned', 'on_route', 'on_location', 'pob', 'completed', 'cancelled', 'done'])],
             'per_page' => 'sometimes|integer|min:1|max:100',
+            'date_from' => 'sometimes|nullable|date',
+            'date_to' => 'sometimes|nullable|date|after_or_equal:date_from',
         ]);
 
         if ($validator->fails()) {
@@ -65,6 +67,14 @@ class BookingController extends Controller
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
+        }
+
+        if ($request->filled('date_from')) {
+            $query->whereDate('pickup_time', '>=', $request->date_from);
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate('pickup_time', '<=', $request->date_to);
         }
 
         $perPage = (int) $request->input('per_page', 15);
