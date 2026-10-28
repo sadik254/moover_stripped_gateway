@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Mail\BookingCreatedMail;
+use App\Mail\CustomerBookingCancelledMail;
 use App\Models\Affiliate;
 use App\Models\AffiliateBookingSettlement;
 use App\Models\AffiliateDisbursement;
@@ -1949,12 +1950,18 @@ class BookingController extends Controller
             return response()->json(['message' => 'Unable to process cancellation payment', 'error' => $exception->getMessage()], 422);
         }
 
+        $previousStatus = (string) $booking->status;
         $booking->status = 'cancelled';
         $booking->base_price = 0; $booking->extras_price = 0; $booking->parking = 0; $booking->tolls = 0; $booking->others = 0; $booking->airport_fees = 0; $booking->congestion_charge = 0;
         $booking->taxes = 0; $booking->taxes_amount = 0; $booking->gratuity = 0; $booking->gratuity_amount = 0; $booking->rate_buffer = 0; $booking->rate_buffer_amount = 0;
         $booking->cancellation_fee = $amount; $booking->total_price = $amount; $booking->final_price = $amount;
         $booking->payment_status = $validated['type'] === 'general' ? 'authorization_released' : ($invoiceAvailable ? 'late_fee_unpaid' : 'paid');
         $booking->save();
+        $booking->refresh()->loadMissing(['company', 'customer', 'vehicleClass', 'stops']);
+        foreach ([[$booking->email ?: $booking->customer?->email, false], [self::BOOKING_NOTIFICATION_EMAILS, true]] as [$recipient, $isAdminCopy]) {
+            if (! $recipient) continue;
+            try { Mail::to($recipient)->send(new CustomerBookingCancelledMail($booking, $previousStatus, $isAdminCopy, $validated['type'], $amount, ! $invoiceAvailable)); } catch (\Throwable $exception) { Log::warning('Admin cancellation email failed', ['booking_id' => $booking->id, 'error' => $exception->getMessage()]); }
+        }
         $this->logBookingActivity(request: $request, booking: $booking, action: 'booking_cancelled', description: $validated['type'] === 'late' ? 'Late cancellation by admin/dispatcher' : 'General cancellation by admin/dispatcher', oldValues: [], newValues: ['status' => 'cancelled', 'late_cancellation_amount' => $amount]);
         return response()->json(['message' => 'Booking cancelled successfully', 'data' => $booking->fresh(), 'captured_amount' => $captured, 'invoice_available' => $invoiceAvailable, 'payment_message' => $paymentMessage]);
     }
