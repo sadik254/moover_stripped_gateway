@@ -2877,24 +2877,22 @@ class BookingController extends Controller
             return false;
         }
 
-        $statusOrder = [
-            'pending' => 0,
-            'confirmed' => 1,
-            'dispatched' => 2,
-            'assigned' => 3,
-            'on_route' => 4,
-            'on_location' => 5,
-            'pob' => 6,
-            'done' => 7,
-            'completed' => 8,
-        ];
-        $currentOrder = $statusOrder[(string) $booking->status] ?? null;
-        $nextOrder = $statusOrder[$nextStatus] ?? null;
+        $activeTripStatuses = ['on_route', 'on_location', 'pob'];
+        $currentStatus = (string) $booking->status;
 
-        return $currentOrder !== null
-            && $nextOrder !== null
-            && $currentOrder >= $statusOrder['on_route']
-            && $nextOrder < $currentOrder;
+        // Dispatchers may correct a missed live-trip milestone in either
+        // direction before the ride is marked done. The trip must never be
+        // returned to a pre-trip status once it has started.
+        if (in_array($currentStatus, $activeTripStatuses, true)) {
+            return ! in_array($nextStatus, [...$activeTripStatuses, 'done', 'completed'], true);
+        }
+
+        // Done and completed rides remain one-way terminal stages.
+        if ($currentStatus === 'done') {
+            return ! in_array($nextStatus, ['done', 'completed'], true);
+        }
+
+        return false;
     }
 
     private function captureCancellationPayment(Booking $booking): ?array
