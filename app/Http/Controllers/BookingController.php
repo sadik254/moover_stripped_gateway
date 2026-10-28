@@ -1130,6 +1130,16 @@ class BookingController extends Controller
 
         if (
             $request->has('status')
+            && $this->statusRequiresDriver((string) $request->status)
+            && ! $booking->driver_id
+        ) {
+            return response()->json([
+                'message' => 'A driver must be assigned before a booking can proceed beyond assignment.',
+            ], 422);
+        }
+
+        if (
+            $request->has('status')
             && in_array((string) $booking->status, ['completed', 'cancelled'], true)
             && (string) $request->status !== (string) $booking->status
         ) {
@@ -1607,6 +1617,12 @@ class BookingController extends Controller
             ], 422);
         }
 
+        if (! $booking->driver_id) {
+            return response()->json([
+                'message' => 'A driver must be assigned before a booking can be finalized.',
+            ], 422);
+        }
+
         $payment = BookingPayment::where('booking_id', $booking->id)
             ->where(function ($query): void {
                 $query->where('payment_kind', 'authorization')->orWhereNull('payment_kind');
@@ -1806,6 +1822,12 @@ class BookingController extends Controller
         ) {
             return response()->json([
                 'message' => 'A booking must first be dispatched to a driver before it can be assigned.',
+            ], 422);
+        }
+
+        if ($this->statusRequiresDriver((string) $request->status) && ! $booking->driver_id) {
+            return response()->json([
+                'message' => 'A driver must be assigned before a booking can proceed beyond assignment.',
             ], 422);
         }
 
@@ -2826,6 +2848,17 @@ class BookingController extends Controller
             'total_price' => $cancellationFee,
             'authorization_amount' => $cancellationFee,
         ];
+    }
+
+    private function statusRequiresDriver(string $status): bool
+    {
+        return in_array($status, [
+            'on_route',
+            'on_location',
+            'pob',
+            'done',
+            'completed',
+        ], true);
     }
 
     private function wouldMoveStartedTripBackward(Booking $booking, string $nextStatus): bool
