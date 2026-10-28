@@ -27,13 +27,22 @@ class BookingInvoiceController extends Controller
             ->with('company')
             ->find($bookingId);
         if (! $booking) return response()->json(['message' => 'Booking not found'], 404);
-        if ($booking->booking_origin !== 'admin' || $booking->status !== 'completed') {
-            return response()->json(['message' => 'Invoices can only be sent for completed admin bookings'], 422);
+        $isLateCancellation = $booking->status === 'cancelled' && $booking->payment_status === 'late_fee_unpaid';
+        if (($booking->booking_origin !== 'admin' || $booking->status !== 'completed') && ! $isLateCancellation) {
+            return response()->json(['message' => 'Invoices can only be sent for completed admin bookings or unpaid late cancellations'], 422);
         }
         if ($booking->payment_status === 'paid') {
             return response()->json(['message' => 'This booking has already been paid'], 422);
         }
-        if (! $booking->email || (float) $booking->final_price <= 0) {
+        $invoiceAmount = (float) $booking->final_price;
+        if ($isLateCancellation) {
+            $captured = (float) BookingPayment::where('booking_id', $booking->id)
+                ->whereIn('payment_kind', ['authorization', 'late_cancellation_charge'])
+                ->where('status', 'succeeded')
+                ->sum('captured_amount');
+            $invoiceAmount = max(0, $invoiceAmount - $captured);
+        }
+        if (! $booking->email || $invoiceAmount <= 0) {
             return response()->json(['message' => 'A customer email and final amount are required'], 422);
         }
 
@@ -54,11 +63,11 @@ class BookingInvoiceController extends Controller
 
             $customer = StripeCustomer::create(['email' => $booking->email, 'name' => $booking->name, 'metadata' => ['booking_id' => $booking->id]]);
             $invoice = Invoice::create(['customer' => $customer->id, 'collection_method' => 'send_invoice', 'days_until_due' => 1, 'auto_advance' => false, 'metadata' => ['booking_id' => $booking->id, 'company_id' => $booking->company_id]]);
-            InvoiceItem::create(['customer' => $customer->id, 'invoice' => $invoice->id, 'currency' => strtolower((string) ($booking->company?->currency ?? 'usd')), 'amount' => (int) round($booking->final_price * 100), 'description' => "Booking #{$booking->id}"]);
+            InvoiceItem::create(['customer' => $customer->id, 'invoice' => $invoice->id, 'currency' => strtolower((string) ($booking->company?->currency ?? 'usd')), 'amount' => (int) round($invoiceAmount * 100), 'description' => $isLateCancellation ? "Booking #{$booking->id} late cancellation fee" : "Booking #{$booking->id}"]);
             $invoice = $invoice->finalizeInvoice();
             $invoice->sendInvoice();
 
-            BookingPayment::create(['booking_id' => $booking->id, 'customer_id' => $booking->customer_id, 'provider' => 'stripe_invoice', 'currency' => strtolower((string) ($booking->company?->currency ?? 'usd')), 'payment_intent_id' => $invoice->payment_intent ?: null, 'stripe_invoice_id' => $invoice->id, 'estimated_amount' => $booking->final_price, 'authorized_amount' => 0, 'amount_to_capture' => $booking->final_price, 'status' => $invoice->status, 'raw_payload' => $invoice->toArray()]);
+            BookingPayment::create(['booking_id' => $booking->id, 'customer_id' => $booking->customer_id, 'provider' => 'stripe_invoice', 'currency' => strtolower((string) ($booking->company?->currency ?? 'usd')), 'payment_intent_id' => $invoice->payment_intent ?: 'invoice_'.$invoice->id, 'stripe_invoice_id' => $invoice->id, 'estimated_amount' => $invoiceAmount, 'authorized_amount' => 0, 'amount_to_capture' => $invoiceAmount, 'status' => $invoice->status, 'raw_payload' => $invoice->toArray()]);
             $booking->payment_method = 'stripe_invoice';
             $booking->payment_status = 'invoice_sent';
             $booking->save();

@@ -1888,6 +1888,77 @@ class BookingController extends Controller
         return response()->json($response);
     }
 
+    public function adminCancel(Request $request, $id)
+    {
+        $company = $this->getCompany();
+        if (! $company) return response()->json(['message' => 'Company not found'], 404);
+        $booking = Booking::where('company_id', $company->id)->find($id);
+        if (! $booking) return response()->json(['message' => 'Booking not found'], 404);
+        if (in_array((string) $booking->status, ['cancelled', 'done', 'completed'], true)) {
+            return response()->json(['message' => 'This booking can no longer be cancelled'], 422);
+        }
+
+        $validated = $request->validate([
+            'type' => ['required', Rule::in(['general', 'late'])],
+            'amount' => ['required_if:type,late', 'nullable', 'numeric', 'min:0.01'],
+        ]);
+
+        $amount = $validated['type'] === 'late' ? round((float) $validated['amount'], 2) : 0.0;
+        $payment = BookingPayment::where('booking_id', $booking->id)
+            ->where(fn ($query) => $query->where('payment_kind', 'authorization')->orWhereNull('payment_kind'))
+            ->latest()->first();
+        $captured = 0.0;
+        $invoiceAvailable = false;
+        $paymentMessage = null;
+
+        try {
+            Stripe::setApiKey((string) config('services.stripe.secret_key'));
+            if ($payment && $payment->payment_intent_id && $payment->status === 'requires_capture') {
+                $intent = PaymentIntent::retrieve($payment->payment_intent_id);
+                if ($validated['type'] === 'general') {
+                    $cancelledIntent = $intent->cancel();
+                    $payment->status = $cancelledIntent->status;
+                    $payment->raw_payload = $cancelledIntent->toArray();
+                    $payment->save();
+                } else {
+                    $captureAmount = min($amount, (float) $payment->authorized_amount);
+                    $capturedIntent = $intent->capture(['amount_to_capture' => (int) round($captureAmount * 100)]);
+                    $captured = $captureAmount;
+                    $payment->captured_amount = $captured;
+                    $payment->amount_to_capture = $captured;
+                    $payment->status = $capturedIntent->status;
+                    $payment->raw_payload = $capturedIntent->toArray();
+                    $payment->save();
+                }
+            }
+
+            $remaining = round(max(0, $amount - $captured), 2);
+            if ($validated['type'] === 'late' && $remaining > 0) {
+                if (! $payment?->stripe_customer_id || ! $payment?->payment_method_id || ! $payment?->consent_granted_at) {
+                    $invoiceAvailable = true;
+                    $paymentMessage = 'No consented saved card is available for the remaining late-cancellation balance.';
+                } else {
+                    try {
+                        $intent = PaymentIntent::create(['amount' => (int) round($remaining * 100), 'currency' => $payment->currency ?: 'usd', 'confirm' => true, 'off_session' => true, 'customer' => $payment->stripe_customer_id, 'payment_method' => $payment->payment_method_id, 'payment_method_types' => ['card'], 'description' => "Booking #{$booking->id} late cancellation"]);
+                        BookingPayment::create(['booking_id' => $booking->id, 'customer_id' => $booking->customer_id, 'provider' => 'stripe', 'payment_kind' => 'late_cancellation_charge', 'currency' => $payment->currency ?: 'usd', 'payment_intent_id' => $intent->id, 'payment_method_id' => $payment->payment_method_id, 'stripe_customer_id' => $payment->stripe_customer_id, 'estimated_amount' => $remaining, 'authorized_amount' => $remaining, 'captured_amount' => $intent->status === 'succeeded' ? $remaining : null, 'amount_to_capture' => $remaining, 'status' => $intent->status, 'raw_payload' => $intent->toArray()]);
+                        if ($intent->status === 'succeeded') $captured += $remaining; else $invoiceAvailable = true;
+                    } catch (\Throwable $exception) { $invoiceAvailable = true; $paymentMessage = $exception->getMessage(); }
+                }
+            }
+        } catch (\Throwable $exception) {
+            return response()->json(['message' => 'Unable to process cancellation payment', 'error' => $exception->getMessage()], 422);
+        }
+
+        $booking->status = 'cancelled';
+        $booking->base_price = 0; $booking->extras_price = 0; $booking->parking = 0; $booking->tolls = 0; $booking->others = 0; $booking->airport_fees = 0; $booking->congestion_charge = 0;
+        $booking->taxes = 0; $booking->taxes_amount = 0; $booking->gratuity = 0; $booking->gratuity_amount = 0; $booking->rate_buffer = 0; $booking->rate_buffer_amount = 0;
+        $booking->cancellation_fee = $amount; $booking->total_price = $amount; $booking->final_price = $amount;
+        $booking->payment_status = $validated['type'] === 'general' ? 'authorization_released' : ($invoiceAvailable ? 'late_fee_unpaid' : 'paid');
+        $booking->save();
+        $this->logBookingActivity(request: $request, booking: $booking, action: 'booking_cancelled', description: $validated['type'] === 'late' ? 'Late cancellation by admin/dispatcher' : 'General cancellation by admin/dispatcher', oldValues: [], newValues: ['status' => 'cancelled', 'late_cancellation_amount' => $amount]);
+        return response()->json(['message' => 'Booking cancelled successfully', 'data' => $booking->fresh(), 'captured_amount' => $captured, 'invoice_available' => $invoiceAvailable, 'payment_message' => $paymentMessage]);
+    }
+
     public function cancelBooking(Request $request, $id)
     {
         $user = $request->user();
