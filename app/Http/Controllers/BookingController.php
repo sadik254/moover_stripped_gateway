@@ -2431,7 +2431,7 @@ class BookingController extends Controller
             ->filter(fn (BookingPayment $item): bool => in_array((string) $item->payment_kind, ['', 'authorization'], true))
             ->sum('captured_amount');
         $postTripAdjustmentAmount = (float) $successfulPayments
-            ->where('payment_kind', 'post_trip_adjustment')
+            ->whereIn('payment_kind', ['post_trip_adjustment', 'late_cancellation_charge'])
             ->sum('captured_amount');
         $capturedAmount = round($initialCapturedAmount + $postTripAdjustmentAmount, 2);
         $displayFinalPrice = (float) ($booking->getRawOriginal('final_price') ?? $booking->total_price ?? 0);
