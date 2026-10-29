@@ -937,7 +937,17 @@ class BookingController extends Controller
                 return $booking;
             });
 
-            $freshBooking = $booking->fresh();
+            // Return the same fully decorated booking shape used by the list endpoint.
+            // Without this, a client which merges the update response can retain an
+            // old `pricing_details` object while `distance_miles` has just changed.
+            $freshBooking = $booking->fresh([
+                'stops:id,booking_id,address,position',
+                'driver:id,name',
+                'vehicleClass:id,name,capacity,luggage,image,pricing_mode',
+                'airport:id,code,name',
+                'latestPayment',
+            ]);
+            $this->applyPaymentSummaries(collect([$freshBooking]));
             $calc = $booking->getAttribute('price_calculation');
             $issuedBookingAccessToken = $booking->getAttribute('issued_booking_access_token');
 
