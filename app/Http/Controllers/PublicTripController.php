@@ -204,7 +204,10 @@ class PublicTripController extends Controller
         $this->storeDriverPauseMinutes($booking);
         $minutes = (int) ($booking->driver_pause_minutes ?? 0);
         if ($minutes > 0) {
-            $booking->waiting_minutes = (float) ($booking->waiting_minutes ?? 0) + $minutes;
+            // Driver Stop/Resume time is priced as timed-stop blocks, not as
+            // ordinary waiting time. The pricing engine applies config grace,
+            // block size, and per-block fee when the booking is finalized.
+            $booking->timed_stop_minutes = (float) ($booking->timed_stop_minutes ?? 0) + $minutes;
             $booking->save();
         }
         $booking->driver_pause_minutes = 0;
@@ -266,6 +269,7 @@ class PublicTripController extends Controller
             - (float) ($booking->congestion_charge ?? 0)
             - (float) ($booking->tolls ?? 0)
             - (float) ($booking->extra_stop_amount ?? 0)
+            - (float) ($booking->timed_stop_amount ?? 0)
             - (float) ($booking->waiting_time_amount ?? 0));
         $estimatedAmount = (float) ($payment?->estimated_amount ?? $booking->total_price ?? 0);
         $authorizedAmount = (float) ($payment?->authorized_amount ?? 0);

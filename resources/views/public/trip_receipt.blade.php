@@ -33,9 +33,11 @@
         <section class="section"><h2 class="section-title">Fare calculation</h2><div class="panel">
             @if ((float) $booking->base_price > 0)<div class="money-row"><span>Base price</span><strong>{{ $currency }} {{ number_format((float) $booking->base_price, 2) }}</strong></div>@endif
             @if ($tripFare > 0)<div class="money-row"><span>Trip fare{{ $booking->pricing_method ? ' · '.str_replace('_', ' ', $booking->pricing_method) : '' }}</span><strong>{{ $currency }} {{ number_format($tripFare, 2) }}</strong></div>@endif
+            @if ((float) $booking->timed_stop_minutes > 0)<div class="money-row"><span>Driver stop time · {{ number_format((float) $booking->timed_stop_minutes, 0) }} min ({{ number_format((float) $booking->timed_stop_grace_minutes, 0) }} min grace, {{ number_format((float) $booking->timed_stop_block_minutes, 0) }} min blocks)</span><strong>{{ (int) $booking->timed_stop_blocks }} billable blocks</strong></div>@endif
             @foreach ([
                 'Extras' => $booking->extras_price,
                 'Extra stops'.((int) $booking->extra_stops > 0 ? ' ('.$booking->extra_stops.')' : '') => $booking->extra_stop_amount,
+                'Timed stops ('.number_format((float) $booking->timed_stop_minutes, 0).' min · '.$booking->timed_stop_blocks.' billable blocks)' => $booking->timed_stop_amount,
                 'Waiting time'.((float) $booking->waiting_minutes > 0 ? ' ('.number_format((float) $booking->waiting_minutes, 0).' min)' : '') => $booking->waiting_time_amount,
                 'Parking' => $booking->parking,
                 'Tolls' => $booking->tolls,

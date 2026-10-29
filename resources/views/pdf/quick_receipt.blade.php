@@ -113,9 +113,13 @@
                     <div class="clear"></div>
                 </div>
             @endif
+            @if ((float) $booking->timed_stop_minutes > 0)
+                <div class="money-row"><span>Driver stop time · {{ number_format((float) $booking->timed_stop_minutes, 0) }} min ({{ number_format((float) $booking->timed_stop_grace_minutes, 0) }} min grace, {{ number_format((float) $booking->timed_stop_block_minutes, 0) }} min blocks)</span><span class="amount">{{ (int) $booking->timed_stop_blocks }} billable blocks</span><div class="clear"></div></div>
+            @endif
             @foreach ([
                 'Extras' => $booking->extras_price,
                 'Extra stops'.((int) $booking->extra_stops > 0 ? ' ('.$booking->extra_stops.')' : '') => $booking->extra_stop_amount,
+                'Timed stops ('.number_format((float) $booking->timed_stop_minutes, 0).' min · '.$booking->timed_stop_blocks.' billable blocks)' => $booking->timed_stop_amount,
                 'Waiting time'.((float) $booking->waiting_minutes > 0 ? ' ('.number_format((float) $booking->waiting_minutes, 0).' min)' : '') => $booking->waiting_time_amount,
                 'Parking' => $booking->parking,
                 'Tolls' => $booking->tolls,

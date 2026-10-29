@@ -1230,6 +1230,7 @@ class BookingController extends Controller
             'stops' => 'sometimes|array',
             'stops.*.address' => 'required|string|max:1000',
             'waiting_minutes' => 'sometimes|nullable|numeric|min:0',
+            'timed_stop_minutes' => 'sometimes|nullable|numeric|min:0',
             'tolls' => 'sometimes|nullable|numeric|min:0',
             'extras_price' => 'sometimes|nullable|numeric|min:0',
             'parking' => 'sometimes|nullable|numeric|min:0',
@@ -1512,6 +1513,10 @@ class BookingController extends Controller
 
                     $booking->base_price = $priceCalculation['base_price'];
                     $booking->extra_stop_amount = $priceCalculation['extra_stop_amount'];
+                    $booking->timed_stop_blocks = $priceCalculation['timed_stop_blocks'];
+                    $booking->timed_stop_amount = $priceCalculation['timed_stop_amount'];
+                    $booking->timed_stop_grace_minutes = $priceCalculation['timed_stop_grace_minutes'];
+                    $booking->timed_stop_block_minutes = $priceCalculation['timed_stop_block_minutes'];
                     $booking->waiting_time_amount = $priceCalculation['waiting_time_amount'];
                     $booking->pricing_method = $priceCalculation['pricing_method'];
                     $booking->taxes = $priceCalculation['tax_rate'];
@@ -1872,6 +1877,7 @@ class BookingController extends Controller
             'congestion_charge' => 'sometimes|nullable|numeric|min:0',
             'extra_stops' => 'sometimes|nullable|integer|min:0',
             'waiting_minutes' => 'sometimes|nullable|numeric|min:0',
+            'timed_stop_minutes' => 'sometimes|nullable|numeric|min:0',
             'tolls' => 'sometimes|nullable|numeric|min:0',
         ]);
 
@@ -1900,6 +1906,7 @@ class BookingController extends Controller
             'congestion_charge',
             'extra_stops',
             'waiting_minutes',
+            'timed_stop_minutes',
             'tolls',
             'rate_buffer',
             'rate_buffer_amount',
@@ -1921,6 +1928,7 @@ class BookingController extends Controller
             'congestion_charge',
             'extra_stops',
             'waiting_minutes',
+            'timed_stop_minutes',
             'tolls',
         ]));
 
@@ -1941,6 +1949,10 @@ class BookingController extends Controller
         DB::transaction(function () use ($booking, $payment, $priceCalculation, $finalPrice): void {
             $booking->base_price = $priceCalculation['base_price'];
             $booking->extra_stop_amount = $priceCalculation['extra_stop_amount'];
+            $booking->timed_stop_blocks = $priceCalculation['timed_stop_blocks'];
+            $booking->timed_stop_amount = $priceCalculation['timed_stop_amount'];
+            $booking->timed_stop_grace_minutes = $priceCalculation['timed_stop_grace_minutes'];
+            $booking->timed_stop_block_minutes = $priceCalculation['timed_stop_block_minutes'];
             $booking->waiting_time_amount = $priceCalculation['waiting_time_amount'];
             $booking->pricing_method = $priceCalculation['pricing_method'];
             $booking->taxes = $priceCalculation['tax_rate'];
@@ -2397,6 +2409,14 @@ class BookingController extends Controller
         $tolls = (float) $data['tolls'];
         $extraStops = (int) $data['extra_stops'];
         $waitingMinutes = (float) $data['waiting_minutes'];
+        $timedStopMinutes = (float) ($data['timed_stop_minutes'] ?? 0);
+        $timedStopGraceMinutes = (float) ($data['waiting_grace_minutes'] ?? 0);
+        $timedStopBlockMinutes = max(1, (float) ($data['extra_stop_minutes'] ?? 15));
+        $timedStopBillableMinutes = max(0, $timedStopMinutes - $timedStopGraceMinutes);
+        $timedStopBlocks = $timedStopBillableMinutes > 0
+            ? (int) ceil($timedStopBillableMinutes / $timedStopBlockMinutes)
+            : 0;
+        $timedStopAmount = $timedStopBlocks * (float) $data['extra_stop_fee'];
         $pickupAddress = trim(mb_strtolower((string) ($data['pickup_address'] ?? '')));
         $dropoffAddress = trim(mb_strtolower((string) ($data['dropoff_address'] ?? '')));
         $isHourlyRoundTrip = $extraStops > 0
@@ -2505,7 +2525,7 @@ class BookingController extends Controller
                 : 0;
             $quotedFare = $data['booking_origin'] === 'admin' ? (float) $data['quoted_fare'] : 0;
             $subtotal = $quotedFare + $extrasPrice + $parking + $others + $airportFees + $congestionCharge + $tolls
-                + $extraStopAmount + $waitingTimeAmount;
+                + $extraStopAmount + $timedStopAmount + $waitingTimeAmount;
             $surgeAmount = $subtotal * ($surgeRate / 100);
             $taxesAmount = ($subtotal + $surgeAmount) * ($taxRate / 100);
             $gratuityAmount = ($subtotal + $surgeAmount) * ($gratuityPercentage / 100);
@@ -2544,6 +2564,11 @@ class BookingController extends Controller
                 'tolls' => $tolls,
                 'extra_stops' => $extraStops,
                 'extra_stop_amount' => $extraStopAmount,
+                'timed_stop_minutes' => $timedStopMinutes,
+                'timed_stop_grace_minutes' => $timedStopGraceMinutes,
+                'timed_stop_block_minutes' => $timedStopBlockMinutes,
+                'timed_stop_blocks' => $timedStopBlocks,
+                'timed_stop_amount' => $timedStopAmount,
                 'waiting_minutes' => $waitingMinutes,
                 'waiting_time_amount' => $waitingTimeAmount,
                 'buffer_amount' => 0,
@@ -2559,7 +2584,7 @@ class BookingController extends Controller
             ? ($waitingMinutes / 60) * $data['wait_time_rate']
             : 0;
         $subtotal = $basePrice + $tripFare + $extrasPrice + $parking + $others + $airportFees
-            + $congestionCharge + $tolls + $extraStopAmount + $waitingTimeAmount;
+            + $congestionCharge + $tolls + $extraStopAmount + $timedStopAmount + $waitingTimeAmount;
         $surgeAmount = $subtotal * ($surgeRate / 100);
         $taxesAmount = ($subtotal + $surgeAmount) * ($taxRate / 100);
         $gratuityAmount = ($subtotal + $surgeAmount) * ($gratuityPercentage / 100);
@@ -2599,6 +2624,11 @@ class BookingController extends Controller
             'tolls' => $tolls,
             'extra_stops' => $extraStops,
             'extra_stop_amount' => $extraStopAmount,
+            'timed_stop_minutes' => $timedStopMinutes,
+            'timed_stop_grace_minutes' => $timedStopGraceMinutes,
+            'timed_stop_block_minutes' => $timedStopBlockMinutes,
+            'timed_stop_blocks' => $timedStopBlocks,
+            'timed_stop_amount' => $timedStopAmount,
             'waiting_minutes' => $waitingMinutes,
             'waiting_time_amount' => $waitingTimeAmount,
             'buffer_amount' => $bufferAmount,
@@ -2638,6 +2668,8 @@ class BookingController extends Controller
                 ? count($data->input('stops', []))
                 : (int) ($data->extra_stops ?? 0),
             'waiting_minutes' => (float) ($data->waiting_minutes ?? 0),
+            'timed_stop_minutes' => (float) ($data->timed_stop_minutes ?? 0),
+            'extra_stop_minutes' => (float) ($config->extra_stop_minutes ?? 15),
             'tolls' => (float) ($data->tolls ?? 0),
             'parking' => (float) ($data->parking ?? 0),
             'others' => (float) ($data->others ?? 0),
@@ -2719,6 +2751,7 @@ class BookingController extends Controller
             - (float) ($booking->congestion_charge ?? 0)
             - (float) ($booking->tolls ?? 0)
             - (float) ($booking->extra_stop_amount ?? 0)
+            - (float) ($booking->timed_stop_amount ?? 0)
             - (float) ($booking->waiting_time_amount ?? 0));
 
         $booking->setAttribute('estimated_amount', $payment?->estimated_amount !== null ? $estimatedAmount : null);
@@ -2742,6 +2775,11 @@ class BookingController extends Controller
             'extras_price' => (float) ($booking->extras_price ?? 0),
             'extra_stops' => (int) ($booking->extra_stops ?? 0),
             'extra_stop_amount' => (float) ($booking->extra_stop_amount ?? 0),
+            'timed_stop_minutes' => (float) ($booking->timed_stop_minutes ?? 0),
+            'timed_stop_grace_minutes' => (float) ($booking->timed_stop_grace_minutes ?? 0),
+            'timed_stop_block_minutes' => (float) ($booking->timed_stop_block_minutes ?? 15),
+            'timed_stop_blocks' => (int) ($booking->timed_stop_blocks ?? 0),
+            'timed_stop_amount' => (float) ($booking->timed_stop_amount ?? 0),
             'waiting_minutes' => (float) ($booking->waiting_minutes ?? 0),
             'waiting_time_amount' => (float) ($booking->waiting_time_amount ?? 0),
             'parking' => (float) ($booking->parking ?? 0),
@@ -2807,6 +2845,11 @@ class BookingController extends Controller
             'tolls' => $priceCalculation['tolls'],
             'extra_stops' => $priceCalculation['extra_stops'],
             'extra_stop_amount' => $priceCalculation['extra_stop_amount'],
+            'timed_stop_minutes' => $priceCalculation['timed_stop_minutes'],
+            'timed_stop_grace_minutes' => $priceCalculation['timed_stop_grace_minutes'],
+            'timed_stop_block_minutes' => $priceCalculation['timed_stop_block_minutes'],
+            'timed_stop_blocks' => $priceCalculation['timed_stop_blocks'],
+            'timed_stop_amount' => $priceCalculation['timed_stop_amount'],
             'waiting_minutes' => $priceCalculation['waiting_minutes'],
             'waiting_time_amount' => $priceCalculation['waiting_time_amount'],
             'subtotal' => $priceCalculation['subtotal'],

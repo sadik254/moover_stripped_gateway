@@ -72,6 +72,7 @@ class QuickReceiptController extends Controller
             - (float) ($booking->congestion_charge ?? 0)
             - (float) ($booking->tolls ?? 0)
             - (float) ($booking->extra_stop_amount ?? 0)
+            - (float) ($booking->timed_stop_amount ?? 0)
             - (float) ($booking->waiting_time_amount ?? 0));
         $estimatedAmount = (float) ($payment?->estimated_amount ?? $booking->total_price ?? 0);
         $authorizedAmount = (float) ($payment?->authorized_amount ?? 0);
