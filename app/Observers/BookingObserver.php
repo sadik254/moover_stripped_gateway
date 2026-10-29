@@ -32,6 +32,7 @@ class BookingObserver
         }
 
         $customerEmail = $freshBooking->email ?: $freshBooking->customer?->email;
+        $allowsAutomatedCustomerEmail = ! $freshBooking->customer || $freshBooking->customer->allowsAutomatedNotifications();
 
         // A redispatch may use the same driver and vehicle, in which case only
         // the status changes. Every entry into dispatched must issue a fresh
@@ -55,7 +56,7 @@ class BookingObserver
         }
 
         if ($statusChanged && $freshBooking->status === 'on_route') {
-            if ($customerEmail) {
+            if ($customerEmail && $allowsAutomatedCustomerEmail) {
                 $this->send($customerEmail, new BookingDriverAssignedMail($freshBooking), $booking->id);
             }
 
@@ -69,7 +70,7 @@ class BookingObserver
                 ->update(['revoked_at' => now()]);
         }
 
-        if (! $customerEmail) {
+        if (! $customerEmail || ! $allowsAutomatedCustomerEmail) {
             return;
         }
 

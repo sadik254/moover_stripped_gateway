@@ -675,7 +675,7 @@ class BookingPaymentController extends Controller
     private function sendPublicReceipt(Booking $booking, BookingPayment $payment, bool $replaceReceiptLink = false): void
     {
         $email = $booking->email ?: $booking->customer?->email;
-        if (! $email) {
+        if (! $email || ($booking->customer && ! $booking->customer->allowsAutomatedNotifications())) {
             return;
         }
 

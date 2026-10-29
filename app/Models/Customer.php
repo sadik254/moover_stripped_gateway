@@ -25,6 +25,7 @@ class Customer extends Authenticatable
         'password_reset_code_sent_at',
         'dispatch_note',
         'preferred_service_level',
+        'notification_preference',
     ];
 
     protected $hidden = [
@@ -55,5 +56,15 @@ class Customer extends Authenticatable
     public function payments()
     {
         return $this->hasMany(BookingPayment::class);
+    }
+
+    /**
+     * DND applies to system-triggered trip and payment notifications. Explicit
+     * operations emails (for example, an invoice sent by an administrator)
+     * deliberately bypass this preference.
+     */
+    public function allowsAutomatedNotifications(): bool
+    {
+        return strtolower((string) ($this->notification_preference ?: 'regular')) !== 'dnd';
     }
 }

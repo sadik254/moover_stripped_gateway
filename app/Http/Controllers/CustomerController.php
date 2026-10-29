@@ -113,6 +113,7 @@ class CustomerController extends Controller
                 'customer_type',
                 'preferred_service_level',
                 'dispatch_note',
+                'notification_preference',
                 'email_verified_at',
                 'created_at',
                 'updated_at',
@@ -128,6 +129,7 @@ class CustomerController extends Controller
                     $customer->customer_type,
                     $customer->preferred_service_level,
                     $customer->dispatch_note,
+                    $customer->notification_preference ?: 'regular',
                     $customer->email_verified_at,
                     $customer->created_at,
                     $customer->updated_at,
@@ -192,6 +194,7 @@ class CustomerController extends Controller
             'customer_type'           => 'nullable|string|max:100',
             'dispatch_note'           => 'nullable|string',
             'preferred_service_level' => 'nullable|string|max:100',
+            'notification_preference' => ['nullable', Rule::in(['regular', 'dnd'])],
         ]);
 
         if ($validator->fails()) {
@@ -211,6 +214,7 @@ class CustomerController extends Controller
             'customer_type',
             'dispatch_note',
             'preferred_service_level',
+            'notification_preference',
         ]);
         $data['company_id'] = $company->id;
         $data['password'] = Hash::make($generatedPassword);
@@ -535,6 +539,7 @@ class CustomerController extends Controller
             'customer_type'           => 'sometimes|nullable|string|max:100',
             'dispatch_note'           => 'sometimes|nullable|string',
             'preferred_service_level' => 'sometimes|nullable|string|max:100',
+            'notification_preference' => ['sometimes', 'nullable', Rule::in(['regular', 'dnd'])],
             'password'                => 'sometimes|nullable|min:6|confirmed',
         ]);
 
@@ -554,6 +559,7 @@ class CustomerController extends Controller
                 'customer_type',
                 'dispatch_note',
                 'preferred_service_level',
+                'notification_preference',
             ])
         );
 

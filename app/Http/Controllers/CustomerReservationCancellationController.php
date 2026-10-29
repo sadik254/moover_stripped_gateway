@@ -185,6 +185,9 @@ class CustomerReservationCancellationController extends Controller
             if (! $delivery['recipient']) {
                 continue;
             }
+            if (! $delivery['isAdminCopy'] && $booking->customer && ! $booking->customer->allowsAutomatedNotifications()) {
+                continue;
+            }
 
             try {
                 Mail::to($delivery['recipient'])->send(new CustomerBookingCancelledMail(

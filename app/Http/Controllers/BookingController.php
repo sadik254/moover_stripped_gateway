@@ -1063,7 +1063,7 @@ class BookingController extends Controller
     private function sendBookingCreatedEmails(Booking $booking): void
     {
         $customerEmail = $booking->email ?: $booking->customer?->email;
-        if ($customerEmail) {
+        if ($customerEmail && (! $booking->customer || $booking->customer->allowsAutomatedNotifications())) {
             try {
                 Mail::to($customerEmail)->send(new BookingCreatedMail($booking));
             } catch (\Throwable $e) {
@@ -2221,6 +2221,7 @@ class BookingController extends Controller
         $booking->refresh()->loadMissing(['company', 'customer', 'vehicleClass', 'stops']);
         foreach ([[$booking->email ?: $booking->customer?->email, false], [self::BOOKING_NOTIFICATION_EMAILS, true]] as [$recipient, $isAdminCopy]) {
             if (! $recipient) continue;
+            if (! $isAdminCopy && $booking->customer && ! $booking->customer->allowsAutomatedNotifications()) continue;
             try { Mail::to($recipient)->send(new CustomerBookingCancelledMail($booking, $previousStatus, $isAdminCopy, $validated['type'], $amount, ! $invoiceAvailable)); } catch (\Throwable $exception) { Log::warning('Admin cancellation email failed', ['booking_id' => $booking->id, 'error' => $exception->getMessage()]); }
         }
         $this->logBookingActivity(request: $request, booking: $booking, action: 'booking_cancelled', description: $validated['type'] === 'late' ? 'Late cancellation by admin/dispatcher' : 'General cancellation by admin/dispatcher', oldValues: [], newValues: ['status' => 'cancelled', 'late_cancellation_amount' => $amount]);
