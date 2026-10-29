@@ -2366,7 +2366,7 @@ class BookingController extends Controller
             $isPeak = in_array(strtolower($pickupDay), $data['peak_days'], true)
                 && $vehicleClass?->peak_hourly_rate !== null;
             $selectedHourlyRate = $isPeak ? $vehicleClass?->peak_hourly_rate : $vehicleClass?->hourly_rate;
-            $hours = $hours > 0 ? $hours : (float) $data['point_to_point_minimum_hours'];
+            $hours = max($hours, (float) $data['point_to_point_minimum_hours']);
             $rate = (float) ($selectedHourlyRate ?? 0);
             $units = $hours;
             $pricingMethod = $isPeak ? 'round_trip_peak_hourly' : 'round_trip_hourly';
@@ -2379,6 +2379,10 @@ class BookingController extends Controller
                     $isPeak = in_array(strtolower($pickupDay), $data['peak_days'], true)
                         && $vehicleClass?->peak_hourly_rate !== null;
                     $selectedHourlyRate = $isPeak ? $vehicleClass?->peak_hourly_rate : $vehicleClass?->hourly_rate;
+                    // The configured minimum is billable time. A customer may
+                    // request fewer hours, but the quote and final booking must
+                    // charge at least this amount.
+                    $hours = max($hours, (float) $data['point_to_point_minimum_hours']);
                     $rate = (float) ($selectedHourlyRate ?? 0);
                     $units = $hours;
                     $pricingMethod = $isPeak ? 'peak_hourly' : 'hourly';

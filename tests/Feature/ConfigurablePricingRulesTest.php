@@ -129,6 +129,29 @@ class ConfigurablePricingRulesTest extends TestCase
             ->assertJsonPath('data.vehicle_class_options.0.total_price', 340);
     }
 
+    public function test_hourly_quotes_charge_the_configured_minimum_billable_hours(): void
+    {
+        [$vehicleClass] = $this->pricingSetup();
+
+        // September 18, 2026 is a configured peak Friday. The requested one
+        // hour must still be billed as the configured two-hour minimum.
+        $this->postJson('/api/bookings', [
+            'name' => 'Hourly Minimum Customer',
+            'email' => 'hourly-minimum@example.com',
+            'service_type' => 'hourly',
+            'pickup_address' => 'Manhattan',
+            'pickup_time' => '2026-09-18 10:00:00',
+            'passengers' => 2,
+            'bags' => 1,
+            'hours' => 1,
+        ])->assertOk()
+            ->assertJsonPath('data.vehicle_class_options.0.vehicle_class_id', $vehicleClass->id)
+            ->assertJsonPath('data.vehicle_class_options.0.pricing_method', 'peak_hourly')
+            ->assertJsonPath('data.vehicle_class_options.0.calculation.hours', 2)
+            ->assertJsonPath('data.vehicle_class_options.0.calculation.trip_fare', 240)
+            ->assertJsonPath('data.vehicle_class_options.0.total_price', 240);
+    }
+
     private function pricingSetup(): array
     {
         $owner = User::create([
