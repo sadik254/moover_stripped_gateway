@@ -586,7 +586,10 @@ class BookingPaymentController extends Controller
 
             $this->syncBookingPaymentStatus($booking);
             if ($intent->status === 'succeeded') {
-                $this->sendPublicReceipt($booking, $adjustment);
+                // Completion may already have issued a receipt link. A newly
+                // collected outstanding balance must still notify the customer
+                // with a fresh paid receipt rather than being silently skipped.
+                $this->sendPublicReceipt($booking, $adjustment, true);
             }
 
             return response()->json([
