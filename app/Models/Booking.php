@@ -16,6 +16,7 @@ class Booking extends Model
         'booking_origin',
         'customer_id',
         'booking_access_token',
+        'idempotency_key',
         'name',
         'email',
         'phone',

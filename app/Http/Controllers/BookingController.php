@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Stripe\Exception\ApiErrorException;
@@ -663,6 +664,7 @@ class BookingController extends Controller
         $validator = Validator::make($request->all(), [
             'customer_id' => ['nullable', Rule::exists('customers', 'id')],
             'booking_origin' => ['nullable', Rule::in(['online', 'admin'])],
+            'idempotency_key' => 'nullable|string|max:100',
             'name' => 'nullable|string|max:255',
             'email' => 'nullable|email|max:255',
             'phone' => 'nullable|string|max:50',
@@ -737,6 +739,29 @@ class BookingController extends Controller
                 return response()->json([
                     'message' => 'Unauthorized customer_id',
                 ], 403);
+            }
+        }
+
+        // The checkout reuses this key after a retry. Returning the existing
+        // booking makes booking creation safe against double-clicks and lost
+        // responses without sending duplicate confirmation emails.
+        if ($request->filled('idempotency_key')) {
+            $existingBooking = Booking::where('company_id', $company->id)
+                ->where('idempotency_key', (string) $request->idempotency_key)
+                ->first();
+
+            if ($existingBooking) {
+                $response = [
+                    'message' => 'Existing booking returned for this checkout request',
+                    'data' => $existingBooking,
+                    'idempotent_replay' => true,
+                ];
+
+                if (! ($authUser instanceof Customer) && ! ($authUser instanceof User)) {
+                    $response['booking_access_token'] = $existingBooking->getRawOriginal('booking_access_token');
+                }
+
+                return response()->json($response, 200);
             }
         }
 
@@ -830,6 +855,7 @@ class BookingController extends Controller
                 $data = $request->only([
                     'customer_id',
                     'booking_origin',
+                    'idempotency_key',
                     'name',
                     'email',
                     'phone',
@@ -946,6 +972,34 @@ class BookingController extends Controller
 
             return response()->json($response, 201);
 
+        } catch (QueryException $e) {
+            // Two identical requests can reach the database at virtually the
+            // same time. The unique key is the final guard; return the winner
+            // instead of surfacing a duplicate-key error to the customer.
+            $existingBooking = $request->filled('idempotency_key')
+                ? Booking::where('company_id', $company->id)
+                    ->where('idempotency_key', (string) $request->idempotency_key)
+                    ->first()
+                : null;
+
+            if ($existingBooking) {
+                $response = [
+                    'message' => 'Existing booking returned for this checkout request',
+                    'data' => $existingBooking,
+                    'idempotent_replay' => true,
+                ];
+
+                if (! ($authUser instanceof Customer) && ! ($authUser instanceof User)) {
+                    $response['booking_access_token'] = $existingBooking->getRawOriginal('booking_access_token');
+                }
+
+                return response()->json($response, 200);
+            }
+
+            return response()->json([
+                'message' => 'Failed to create booking',
+                'error' => $e->getMessage(),
+            ], 500);
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Failed to create booking',

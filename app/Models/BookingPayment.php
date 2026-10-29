@@ -16,6 +16,7 @@ class BookingPayment extends Model
         'payment_kind',
         'currency',
         'payment_intent_id',
+        'idempotency_key',
         'stripe_invoice_id',
         'payment_method_id',
         'stripe_customer_id',

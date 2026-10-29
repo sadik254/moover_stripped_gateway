@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Str;
 use Stripe\Exception\ApiErrorException;
 use Stripe\Exception\SignatureVerificationException;
@@ -188,6 +189,7 @@ class BookingPaymentController extends Controller
         $validator = Validator::make($request->all(), [
             'payment_method_id' => 'required|string|max:255',
             'booking_access_token' => 'nullable|string|max:80',
+            'idempotency_key' => 'nullable|string|max:100',
             'post_trip_charge_consent' => 'required|accepted',
         ]);
 
@@ -197,6 +199,10 @@ class BookingPaymentController extends Controller
                 'errors' => $validator->errors(),
             ], 422);
         }
+
+        $idempotencyKey = $request->filled('idempotency_key')
+            ? (string) $request->idempotency_key
+            : null;
 
         if ($authUser) {
             if (! $this->canAccessBooking($authUser, $booking)) {
@@ -214,6 +220,26 @@ class BookingPaymentController extends Controller
                 ! hash_equals((string) $booking->booking_access_token, (string) $request->booking_access_token)
             ) {
                 return response()->json(['message' => 'Unauthorized'], 403);
+            }
+        }
+
+        if ($idempotencyKey) {
+            $existingPayment = BookingPayment::where('booking_id', $booking->id)
+                ->where('idempotency_key', $idempotencyKey)
+                ->first();
+
+            if ($existingPayment) {
+                return response()->json([
+                    'message' => 'Existing payment authorization returned for this checkout request',
+                    'data' => [
+                        'booking_id' => $booking->id,
+                        'payment' => $existingPayment,
+                        'payment_intent_status' => $existingPayment->status,
+                        'estimated_amount' => (float) $existingPayment->estimated_amount,
+                        'authorized_amount' => (float) $existingPayment->authorized_amount,
+                    ],
+                    'idempotent_replay' => true,
+                ], 200);
             }
         }
 
@@ -235,7 +261,7 @@ class BookingPaymentController extends Controller
         try {
             Stripe::setApiKey((string) config('services.stripe.secret_key'));
 
-            $stripeCustomerId = $this->resolveStripeCustomerId($booking);
+            $stripeCustomerId = $this->resolveStripeCustomerId($booking, $idempotencyKey);
 
             $intent = PaymentIntent::create([
                 'amount' => $amountInCents,
@@ -251,15 +277,18 @@ class BookingPaymentController extends Controller
                     'booking_id' => (string) $booking->id,
                     'company_id' => (string) $booking->company_id,
                 ],
-            ]);
+            ], $idempotencyKey ? [
+                'idempotency_key' => "booking-{$booking->id}-authorization-{$idempotencyKey}",
+            ] : []);
 
-            $payment = BookingPayment::create([
+            $paymentData = [
                 'booking_id' => $booking->id,
                 'customer_id' => $booking->customer_id,
                 'provider' => 'stripe',
                 'payment_kind' => 'authorization',
                 'currency' => $currency,
                 'payment_intent_id' => $intent->id,
+                'idempotency_key' => $idempotencyKey,
                 'payment_method_id' => $request->payment_method_id,
                 'stripe_customer_id' => $stripeCustomerId,
                 'consent_granted_at' => now(),
@@ -269,7 +298,20 @@ class BookingPaymentController extends Controller
                 'authorized_amount' => $authorizedAmount,
                 'status' => $intent->status,
                 'raw_payload' => $intent->toArray(),
-            ]);
+            ];
+
+            try {
+                $payment = $idempotencyKey
+                    ? BookingPayment::firstOrCreate(
+                        ['booking_id' => $booking->id, 'idempotency_key' => $idempotencyKey],
+                        $paymentData,
+                    )
+                    : BookingPayment::firstOrCreate(['payment_intent_id' => $intent->id], $paymentData);
+            } catch (QueryException) {
+                $payment = BookingPayment::where('booking_id', $booking->id)
+                    ->where('idempotency_key', $idempotencyKey)
+                    ->firstOrFail();
+            }
 
             $booking->payment_method = 'stripe';
             $booking->payment_status = $intent->status === 'requires_capture' ? 'authorized' : $intent->status;
@@ -296,7 +338,8 @@ class BookingPaymentController extends Controller
                 estimatedAmount: $estimatedAmount,
                 authorizedAmount: $authorizedAmount,
                 error: $e,
-                paymentMethodId: (string) $request->payment_method_id
+                paymentMethodId: (string) $request->payment_method_id,
+                idempotencyKey: $idempotencyKey,
             );
 
             $booking->payment_method = 'stripe';
@@ -587,7 +630,7 @@ class BookingPaymentController extends Controller
         return Company::query()->value('id');
     }
 
-    private function resolveStripeCustomerId(Booking $booking): string
+    private function resolveStripeCustomerId(Booking $booking, ?string $idempotencyKey = null): string
     {
         $existingCustomerId = $booking->customer_id
             ? BookingPayment::where('customer_id', $booking->customer_id)
@@ -608,7 +651,9 @@ class BookingPaymentController extends Controller
                 'customer_id' => (string) ($booking->customer_id ?? ''),
                 'company_id' => (string) $booking->company_id,
             ],
-        ]);
+        ], $idempotencyKey ? [
+            'idempotency_key' => "booking-{$booking->id}-customer-{$idempotencyKey}",
+        ] : []);
 
         return $customer->id;
     }
@@ -675,7 +720,8 @@ class BookingPaymentController extends Controller
         float $estimatedAmount,
         float $authorizedAmount,
         ApiErrorException $error,
-        ?string $paymentMethodId = null
+        ?string $paymentMethodId = null,
+        ?string $idempotencyKey = null,
     ): BookingPayment {
         $errorBody = method_exists($error, 'getJsonBody') ? $error->getJsonBody() : null;
         $paymentIntentId = data_get($errorBody, 'error.payment_intent.id');
@@ -686,6 +732,7 @@ class BookingPaymentController extends Controller
             'provider' => 'stripe',
             'currency' => $currency,
             'payment_intent_id' => $paymentIntentId ?: 'failed_'.Str::uuid()->toString(),
+            'idempotency_key' => $idempotencyKey,
             'payment_method_id' => $paymentMethodId,
             'estimated_amount' => $estimatedAmount,
             'authorized_amount' => $authorizedAmount,
