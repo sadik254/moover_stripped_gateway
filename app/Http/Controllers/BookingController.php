@@ -832,6 +832,18 @@ class BookingController extends Controller
             ], 404);
         }
 
+        if ((int) $vehicleClass->capacity < $requiredPassengerCapacity) {
+            return response()->json([
+                'message' => 'Selected vehicle class cannot accommodate all passengers and child seats.',
+            ], 422);
+        }
+
+        if ((int) $vehicleClass->luggage < $bags) {
+            return response()->json([
+                'message' => 'Selected vehicle class cannot accommodate the requested baggage.',
+            ], 422);
+        }
+
         // Public bookings must be routed to the quote-request flow. Admin and
         // dispatcher bookings are allowed to create the reservation without a
         // calculated trip fare, then record permitted extras/invoice it later.
@@ -1244,12 +1256,75 @@ class BookingController extends Controller
             ], 422);
         }
 
+        // Vehicle selection in an edit must follow the same hard eligibility
+        // rules as booking creation. This remains server-side so a crafted API
+        // request cannot bypass the filtered admin UI.
+        $effectiveVehicleClass = VehicleClass::where('company_id', $company->id)
+            ->find((int) $request->input('vehicle_class_id', $booking->vehicle_class_id));
+        if (! $effectiveVehicleClass) {
+            return response()->json(['message' => 'Vehicle class not found'], 404);
+        }
+
+        $effectivePassengers = (int) $request->input('passengers', $booking->passengers);
+        $effectiveChildSeats = (int) $request->input('child_seats', $booking->child_seats ?? 0);
+        $effectiveBags = (int) $request->input('bags', $booking->bags ?? 0);
+        if ((int) $effectiveVehicleClass->capacity < ($effectivePassengers + $effectiveChildSeats)) {
+            return response()->json([
+                'message' => 'Selected vehicle class cannot accommodate all passengers and child seats. Choose a larger vehicle class.',
+            ], 422);
+        }
+        if ((int) $effectiveVehicleClass->luggage < $effectiveBags) {
+            return response()->json([
+                'message' => 'Selected vehicle class cannot accommodate the requested baggage. Choose a larger vehicle class.',
+            ], 422);
+        }
+        if ($effectiveVehicleClass->pricing_mode === 'custom_quote'
+            && (string) ($booking->booking_origin ?? 'online') !== 'admin') {
+            return response()->json([
+                'message' => 'Quote-only vehicle classes cannot be selected for an online booking.',
+            ], 422);
+        }
+
         if ($request->filled('vehicle_id')) {
             $vehicle = Vehicle::where('company_id', $company->id)->find($request->vehicle_id);
             $vehicleClassId = (int) $request->input('vehicle_class_id', $booking->vehicle_class_id);
             if ($vehicle && (int) $vehicle->vehicle_class_id !== $vehicleClassId) {
                 return response()->json([
                     'message' => 'Selected vehicle must belong to the booking vehicle class',
+                ], 422);
+            }
+        }
+
+        $pricingInputsChanged = $request->hasAny([
+            'vehicle_class_id',
+            'service_type',
+            'distance_miles',
+            'hours',
+            'airport_id',
+            'pickup_time',
+            'pickup_address',
+            'dropoff_address',
+            'stops',
+        ]);
+        if ($pricingInputsChanged) {
+            $effectiveBooking = clone $booking;
+            $effectiveBooking->fill($request->only([
+                'vehicle_class_id', 'service_type', 'distance_miles', 'hours',
+                'airport_id', 'pickup_time', 'pickup_address', 'dropoff_address',
+                'extras_price', 'parking', 'others', 'airport_fees',
+                'congestion_charge', 'tolls', 'waiting_minutes',
+            ]));
+            if ($request->has('stops')) {
+                $effectiveBooking->extra_stops = count($request->input('stops', []));
+            }
+
+            $priceCheck = $this->calculatePrice(
+                $effectiveVehicleClass,
+                $this->buildPriceInput($effectiveBooking, $this->getSystemConfig($company->id))
+            );
+            if (! $priceCheck['available']) {
+                return response()->json([
+                    'message' => $priceCheck['unavailable_reason'] ?? 'This vehicle class is not available for the selected trip.',
                 ], 422);
             }
         }
@@ -1401,7 +1476,14 @@ class BookingController extends Controller
                 $booking->setAttribute('price_calculation', $latestPriceCalculation);
             });
 
-            $freshBooking = $booking->fresh();
+            $freshBooking = $booking->fresh([
+                'stops:id,booking_id,address,position',
+                'driver:id,name',
+                'vehicleClass:id,name,capacity,luggage,image,pricing_mode',
+                'airport:id,code,name',
+                'latestPayment',
+            ]);
+            $this->applyPaymentSummaries(collect([$freshBooking]));
             $calc = $booking->getAttribute('price_calculation');
             $cancellationPayment = null;
 
