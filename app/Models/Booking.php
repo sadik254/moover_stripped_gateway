@@ -64,6 +64,8 @@ class Booking extends Model
         'surge_rate_amount',
         'payment_method',
         'payment_status',
+        'confirmation_email_sent_at',
+        'confirmation_email_needs_update',
         'status',
         'affiliate_status',
         'affiliate_reference',
@@ -73,6 +75,11 @@ class Booking extends Model
 
     protected $hidden = [
         'booking_access_token',
+    ];
+
+    protected $casts = [
+        'confirmation_email_sent_at' => 'datetime',
+        'confirmation_email_needs_update' => 'boolean',
     ];
 
     public function company()

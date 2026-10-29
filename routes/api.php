@@ -140,6 +140,7 @@ Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('booking
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('bookings/{id}/assign-driver', [BookingController::class, 'assignDriver']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('bookings/{id}/assign-affiliate', [BookingController::class, 'assignAffiliate']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('bookings/{id}/update-status', [BookingController::class, 'updateStatusOnly']);
+Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('bookings/{id}/send-confirmation-email', [BookingController::class, 'sendConfirmationEmail']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('bookings/{id}/finalize', [BookingController::class, 'finalize']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('bookings/{id}/invoice', [BookingInvoiceController::class, 'create']);
 Route::middleware(['auth:sanctum', 'user.only:admin,dispatcher'])->post('bookings/{id}/cancel', [BookingController::class, 'adminCancel']);

@@ -32,7 +32,8 @@ class BookingCreatedMail extends Mailable
 
     public string $serviceType;
 
-    public function __construct(Booking $booking, bool $isAdminCopy = false)
+    /** @param 'created'|'confirmation'|'updated' $emailType */
+    public function __construct(Booking $booking, bool $isAdminCopy = false, public string $emailType = 'created')
     {
         $booking->loadMissing(['company', 'customer', 'vehicleClass', 'driver', 'stops']);
         $company = $booking->company ?? Company::first();
@@ -56,7 +57,11 @@ class BookingCreatedMail extends Mailable
     {
         $subject = $this->isAdminCopy
             ? "New booking #{$this->booking->id} for {$this->platformName}"
-            : "Your {$this->platformName} booking request #{$this->booking->id}";
+            : match ($this->emailType) {
+                'updated' => "Booking details updated #{$this->booking->id} · {$this->platformName}",
+                'confirmation' => "Your {$this->platformName} booking confirmation #{$this->booking->id}",
+                default => "Your {$this->platformName} booking request #{$this->booking->id}",
+            };
 
         return $this
             ->subject($subject)

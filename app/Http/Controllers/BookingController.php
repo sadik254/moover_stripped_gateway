@@ -990,6 +990,8 @@ class BookingController extends Controller
                 ]
             );
 
+            // Customer confirmations are sent deliberately by operations once
+            // the booking is ready. Keep the internal new-booking alert.
             $this->sendBookingCreatedEmails($freshBooking);
 
             return response()->json($response, 201);
@@ -1060,20 +1062,17 @@ class BookingController extends Controller
 
     private function sendBookingCreatedEmails(Booking $booking): void
     {
-        if ($booking->email) {
+        $customerEmail = $booking->email ?: $booking->customer?->email;
+        if ($customerEmail) {
             try {
-                Mail::to($booking->email)->send(new BookingCreatedMail($booking));
+                Mail::to($customerEmail)->send(new BookingCreatedMail($booking));
             } catch (\Throwable $e) {
-                Log::warning('Booking customer confirmation email failed', [
+                Log::warning('Booking customer creation email failed', [
                     'booking_id' => $booking->id,
-                    'email' => $booking->email,
+                    'email' => $customerEmail,
                     'error' => $e->getMessage(),
                 ]);
             }
-        } else {
-            Log::warning('Booking customer confirmation email skipped because no contact email is available', [
-                'booking_id' => $booking->id,
-            ]);
         }
 
         try {
@@ -1087,6 +1086,57 @@ class BookingController extends Controller
                 'emails' => self::BOOKING_NOTIFICATION_EMAILS,
                 'error' => $e->getMessage(),
             ]);
+        }
+    }
+
+    public function sendConfirmationEmail(Request $request, $id)
+    {
+        if (! $request->user() instanceof User) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $company = $this->getCompany();
+        $booking = $company ? Booking::where('company_id', $company->id)->find($id) : null;
+        if (! $booking) {
+            return response()->json(['message' => 'Booking not found'], 404);
+        }
+        if ((string) $booking->status === 'cancelled') {
+            return response()->json(['message' => 'A cancelled booking cannot receive a confirmation email'], 422);
+        }
+
+        $email = $booking->email ?: $booking->customer?->email;
+        if (! $email) {
+            return response()->json(['message' => 'This booking has no customer email address'], 422);
+        }
+
+        $isUpdated = (bool) $booking->confirmation_email_needs_update;
+        try {
+            Mail::to($email)->send(new BookingCreatedMail(
+                $booking,
+                false,
+                $isUpdated ? 'updated' : 'confirmation'
+            ));
+            $booking->forceFill([
+                'confirmation_email_sent_at' => now(),
+                'confirmation_email_needs_update' => false,
+            ])->save();
+
+            $this->logBookingActivity(
+                request: $request,
+                booking: $booking,
+                action: $isUpdated ? 'updated_confirmation_email_sent' : 'confirmation_email_sent',
+                description: $isUpdated ? 'Updated confirmation email sent to customer' : 'Confirmation email sent to customer',
+                oldValues: null,
+                newValues: ['confirmation_email_sent_at' => $booking->confirmation_email_sent_at]
+            );
+
+            return response()->json([
+                'message' => $isUpdated ? 'Updated confirmation email sent' : 'Confirmation email sent',
+                'data' => $booking,
+            ]);
+        } catch (\Throwable $exception) {
+            Log::warning('Manual booking confirmation email failed', ['booking_id' => $booking->id, 'error' => $exception->getMessage()]);
+            return response()->json(['message' => 'Unable to send confirmation email'], 500);
         }
     }
 
@@ -1386,6 +1436,20 @@ class BookingController extends Controller
                 if ($request->has('stops')) {
                     $booking->extra_stops = count($request->input('stops', []));
                     $this->syncStops($booking, $request->input('stops', []));
+                }
+
+                $confirmationRelevantFields = [
+                    'customer_id', 'name', 'email', 'phone', 'vehicle_class_id',
+                    'vehicle_id', 'airport_id', 'service_type', 'pickup_address',
+                    'dropoff_address', 'pickup_time', 'dropoff_time', 'passengers',
+                    'child_seats', 'bags', 'flight_number', 'airlines', 'distance_miles',
+                    'hours', 'extras_price', 'waiting_minutes', 'tolls', 'parking',
+                    'others', 'airport_fees', 'congestion_charge', 'notes',
+                ];
+                if ($booking->isDirty($confirmationRelevantFields) || $request->has('stops')) {
+                    // A customer must receive the latest itinerary after any
+                    // meaningful edit, even when no initial confirmation was sent.
+                    $booking->confirmation_email_needs_update = true;
                 }
 
                 $latestPriceCalculation = null;

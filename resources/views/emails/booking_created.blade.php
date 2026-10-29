@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ $isAdminCopy ? 'New Booking' : 'Booking Request Received' }}</title>
+    <title>{{ $isAdminCopy ? 'New Booking' : ($emailType === 'updated' ? 'Booking Details Updated' : ($emailType === 'confirmation' ? 'Booking Confirmation' : 'Booking Request Received')) }}</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f4f5;font-family:Arial,Helvetica,sans-serif;color:#18181b;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:24px 12px;">
@@ -16,8 +16,8 @@
                                 <img src="{{ $companyLogo }}" alt="{{ $platformName }} logo" style="max-height:44px;display:block;margin-bottom:12px;">
                             @endif
                             <div style="font-size:18px;font-weight:700;margin-bottom:14px;">{{ $platformName }}</div>
-                            <div style="font-size:12px;letter-spacing:1px;text-transform:uppercase;opacity:.85;">{{ $isAdminCopy ? 'Operations notification' : 'Booking request received' }}</div>
-                            <div style="font-size:28px;font-weight:700;line-height:1.3;">{{ $isAdminCopy ? 'A new booking needs attention' : 'Your trip request is in the queue' }}</div>
+                            <div style="font-size:12px;letter-spacing:1px;text-transform:uppercase;opacity:.85;">{{ $isAdminCopy ? 'Operations notification' : ($emailType === 'updated' ? 'Booking details updated' : ($emailType === 'confirmation' ? 'Booking confirmation' : 'Booking request received')) }}</div>
+                            <div style="font-size:28px;font-weight:700;line-height:1.3;">{{ $isAdminCopy ? 'A new booking needs attention' : ($emailType === 'updated' ? 'Your trip details have been updated' : ($emailType === 'confirmation' ? 'Your booking is confirmed' : 'Your trip request is in the queue')) }}</div>
                         </td>
                     </tr>
                     <tr>
@@ -27,7 +27,7 @@
                                 @if ($isAdminCopy)
                                     A new {{ $serviceType }} booking has been created. The operational details are below.
                                 @else
-                                    Thanks for booking with {{ $platformName }}. We have received your request and our team will follow up with you.
+                                    {{ $emailType === 'updated' ? 'Your booking details have been updated. Please review the latest itinerary below.' : ($emailType === 'confirmation' ? 'Your booking has been confirmed. Please review your itinerary below.' : 'Thanks for booking with '.$platformName.'. We have received your request and our team will follow up with you.') }}
                                 @endif
                             </p>
 
