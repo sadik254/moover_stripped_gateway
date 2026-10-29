@@ -1675,9 +1675,9 @@ class BookingController extends Controller
             return response()->json(['message' => 'Booking not found'], 404);
         }
 
-        if ((string) $booking->status !== 'done') {
+        if (! in_array((string) $booking->status, ['assigned', 'on_route', 'on_location', 'pob', 'done'], true)) {
             return response()->json([
-                'message' => 'Only a booking with done status can be finalized',
+                'message' => 'Only a driver-assigned or active-trip booking can be finalized',
             ], 422);
         }
 
