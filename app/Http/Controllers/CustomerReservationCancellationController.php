@@ -107,7 +107,7 @@ class CustomerReservationCancellationController extends Controller
             ? 7 * 24
             : match ($serviceType) {
                 'hourly' => 48,
-                'point_to_point' => 4,
+                'point_to_point' => 24,
                 default => null,
             };
 
