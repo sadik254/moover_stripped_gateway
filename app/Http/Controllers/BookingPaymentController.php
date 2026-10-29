@@ -65,6 +65,7 @@ class BookingPaymentController extends Controller
         }
 
         if ($isInvoiceEvent) {
+            $invoiceWasAlreadyPaid = (string) $payment->status === 'paid';
             $payment->status = (string) ($intentObject->status ?? $payment->status);
             $payment->raw_payload = (array) $intentObject;
             $payment->captured_amount = isset($intentObject->amount_paid)
@@ -75,8 +76,8 @@ class BookingPaymentController extends Controller
             if ($payment->booking) {
                 $payment->booking->payment_status = $event->type === 'invoice.paid' ? 'paid' : $payment->booking->payment_status;
                 $payment->booking->save();
-                if ($event->type === 'invoice.paid') {
-                    $this->sendPublicReceipt($payment->booking, $payment);
+                if ($event->type === 'invoice.paid' && ! $invoiceWasAlreadyPaid) {
+                    $this->sendPublicReceipt($payment->booking, $payment, true);
                 }
             }
 
@@ -668,17 +669,16 @@ class BookingPaymentController extends Controller
         $booking->save();
     }
 
-    private function sendPublicReceipt(Booking $booking, BookingPayment $payment): void
+    private function sendPublicReceipt(Booking $booking, BookingPayment $payment, bool $replaceReceiptLink = false): void
     {
         $email = $booking->email ?: $booking->customer?->email;
         if (! $email) {
             return;
         }
 
-        $issued = BookingAccessLink::issueIfMissing(
-            $booking,
-            BookingAccessLink::RECEIPT
-        );
+        $issued = $replaceReceiptLink
+            ? BookingAccessLink::issue($booking, BookingAccessLink::RECEIPT, null, now()->addDays(30))
+            : BookingAccessLink::issueIfMissing($booking, BookingAccessLink::RECEIPT);
         if (! $issued) {
             return;
         }

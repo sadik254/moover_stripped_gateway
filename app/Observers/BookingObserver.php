@@ -3,7 +3,7 @@
 namespace App\Observers;
 
 use App\Mail\BookingDriverAssignedMail;
-use App\Mail\BookingStatusChangedMail;
+use App\Mail\BookingCompletedReceiptMail;
 use App\Mail\BookingTrackingStartedMail;
 use App\Mail\DriverTripAccessMail;
 use App\Models\Booking;
@@ -89,11 +89,21 @@ class BookingObserver
             return;
         }
 
-        // Statuses are operational updates. Customers only need a completion
-        // notice after the trip has been finalized; the arrival notification
-        // above already covers the pickup milestone.
+        // POB is an internal operational milestone and deliberately sends no
+        // customer email. Completion sends the full trip receipt instead of a
+        // generic status-change notification.
         if ($freshBooking->status === 'completed') {
-            $this->send($customerEmail, new BookingStatusChangedMail($freshBooking, $previousStatus), $booking->id);
+            [, $token] = BookingAccessLink::issue(
+                $freshBooking,
+                BookingAccessLink::RECEIPT,
+                null,
+                now()->addDays(30)
+            );
+            $this->send(
+                $customerEmail,
+                new BookingCompletedReceiptMail($freshBooking, route('public.trip-receipt', ['token' => $token])),
+                $booking->id
+            );
         }
     }
 

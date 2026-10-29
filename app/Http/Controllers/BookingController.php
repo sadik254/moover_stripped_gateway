@@ -1090,6 +1090,13 @@ class BookingController extends Controller
             return response()->json(['message' => 'Booking not found'], 404);
         }
 
+        if (in_array((string) $booking->status, ['completed', 'cancelled'], true)
+            && $request->except('status') !== []) {
+            return response()->json([
+                'message' => 'Completed or cancelled bookings are read-only and cannot be edited.',
+            ], 422);
+        }
+
         $beforeSnapshot = $booking->only([
             'status',
             'customer_id',
